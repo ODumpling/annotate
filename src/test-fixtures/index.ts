@@ -1,4 +1,1 @@
-/**
- * Shared projects used for editor/export parity tests.
- */
-export {}
+export { PREVIEW_FIXTURE_PROJECT } from './projects'
