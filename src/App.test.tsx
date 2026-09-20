@@ -216,3 +216,49 @@ describe('App inspector and export wiring', () => {
     )
   })
 })
+
+describe('App edit/preview mode toggle', () => {
+  it('switches to a read-only preview and back without touching editor state', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => ({ width: 800, height: 600, close: vi.fn() })),
+    )
+    render(<App />)
+    fireEvent.drop(screen.getByText(/drag and drop/i), {
+      dataTransfer: { files: [validPngFile()] },
+    })
+    await screen.findByRole('img', { name: /uploaded document page/i })
+
+    const pageId = projectStore.getState().project.pages[0].id
+    projectStore.getState().actions.createHotspot({
+      id: 'hotspot-1',
+      pageId,
+      shape: 'point',
+      x: 0.5,
+      y: 0.5,
+      title: 'Entrance',
+      description: '',
+      tags: [],
+    })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Preview' }))
+
+    expect(
+      screen.queryByRole('complementary', { name: 'Hotspot inspector' }),
+    ).toBeNull()
+    expect(
+      screen.queryByRole('button', { name: /export standalone html/i }),
+    ).toBeNull()
+    expect(screen.queryByText(/drag and drop/i)).toBeNull()
+    const preview = screen.getByRole('region', { name: 'Interactive preview' })
+    expect(
+      within(preview).getByRole('button', { name: /entrance/i }),
+    ).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Edit' }))
+    expect(
+      screen.getByRole('complementary', { name: 'Hotspot inspector' }),
+    ).toBeTruthy()
+    expect(projectStore.getState().selectedHotspotId).toBeNull()
+  })
+})
