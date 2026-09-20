@@ -1,6 +1,13 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { exportFileName } from './export'
 import { clearBlobs, IMAGE_PIXEL_LIMITS } from './ingest'
 import { projectStore } from './store'
 
@@ -152,5 +159,60 @@ describe('App image upload', () => {
     expect(projectStore.getState().project.source).toMatchObject({
       fileName: 'first.png',
     })
+  })
+})
+
+describe('App inspector and export wiring', () => {
+  it('shows created hotspots in the inspector and exports a standalone file', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => ({ width: 800, height: 600, close: vi.fn() })),
+    )
+    render(<App />)
+    fireEvent.drop(screen.getByText(/drag and drop/i), {
+      dataTransfer: { files: [validPngFile()] },
+    })
+    await screen.findByRole('img', { name: /uploaded document page/i })
+
+    const pageId = projectStore.getState().project.pages[0].id
+    projectStore.getState().actions.createHotspot({
+      id: 'hotspot-1',
+      pageId,
+      shape: 'point',
+      x: 0.5,
+      y: 0.5,
+      title: 'Entrance',
+      description: '',
+      tags: [],
+    })
+
+    const inspector = await screen.findByRole('complementary', {
+      name: 'Hotspot inspector',
+    })
+    expect(
+      within(inspector).getByRole('button', { name: 'Entrance' }),
+    ).toBeTruthy()
+
+    let downloadAnchor: HTMLAnchorElement | undefined
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {})
+    const originalAppendChild = document.body.appendChild.bind(document.body)
+    vi.spyOn(document.body, 'appendChild').mockImplementation((node) => {
+      if (node instanceof HTMLAnchorElement) {
+        downloadAnchor = node
+      }
+      return originalAppendChild(node)
+    })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /export standalone html/i }),
+    )
+
+    await waitFor(() => expect(clickSpy).toHaveBeenCalledOnce())
+    expect(downloadAnchor?.href).toMatch(/^blob:/)
+    expect(downloadAnchor?.download).toBe(
+      exportFileName(projectStore.getState().project),
+    )
   })
 })

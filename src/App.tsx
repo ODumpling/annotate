@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from 'zustand/react'
+import { ExportError, exportFileName, exportProject } from './export'
 import {
   getBlob,
   ingestImage,
   ingestImageIntoProject,
   IngestError,
 } from './ingest'
+import { HotspotInspector } from './inspector'
 import { projectStore } from './store'
 import { ImageViewport } from './viewer'
 
@@ -19,8 +21,13 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
   const [isIngesting, setIsIngesting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const page = project.pages[0]
+  const pageHotspots = page
+    ? project.hotspots.filter((hotspot) => hotspot.pageId === page.id)
+    : []
   const blob = useMemo(
     () =>
       project.source?.kind === 'image'
@@ -64,6 +71,32 @@ function App() {
     }
   }
 
+  async function handleExport() {
+    if (isExporting) return
+    setExportError(null)
+    setIsExporting(true)
+    try {
+      const result = await exportProject(project, getBlob)
+      const blob = new Blob([result.html], { type: 'text/html' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = exportFileName(project)
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+    } catch (cause) {
+      setExportError(
+        cause instanceof ExportError
+          ? cause.message
+          : 'Could not export this project.',
+      )
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center gap-4 bg-slate-950 px-6 py-10 text-slate-100">
       <h1 className="text-4xl font-semibold tracking-tight">Annotate</h1>
@@ -97,21 +130,42 @@ function App() {
           ))}
         </ul>
       )}
+      {exportError && (
+        <p role="alert" className="text-sm text-red-400">
+          {exportError}
+        </p>
+      )}
       {imageUrl && page && (
-        <div className="h-[60vh] w-full max-w-3xl">
-          <ImageViewport
-            imageUrl={imageUrl}
-            naturalWidth={page.width}
-            naturalHeight={page.height}
-            editing={{
-              pageId: page.id,
-              hotspots: project.hotspots.filter(
-                (hotspot) => hotspot.pageId === page.id,
-              ),
-              selectedHotspotId,
-              actions,
-            }}
-          />
+        <div className="flex w-full max-w-6xl flex-col gap-4 lg:flex-row">
+          <div className="h-[60vh] flex-1">
+            <ImageViewport
+              imageUrl={imageUrl}
+              naturalWidth={page.width}
+              naturalHeight={page.height}
+              editing={{
+                pageId: page.id,
+                hotspots: pageHotspots,
+                selectedHotspotId,
+                actions,
+              }}
+            />
+          </div>
+          <div className="flex flex-col gap-3 lg:w-96">
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => void handleExport()}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium disabled:opacity-50"
+            >
+              {isExporting ? 'Exporting…' : 'Export standalone HTML'}
+            </button>
+            <HotspotInspector
+              pageId={page.id}
+              hotspots={pageHotspots}
+              selectedHotspotId={selectedHotspotId}
+              actions={actions}
+            />
+          </div>
         </div>
       )}
     </main>
