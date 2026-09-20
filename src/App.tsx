@@ -11,6 +11,10 @@ import { ImageViewport } from './viewer'
 
 function App() {
   const project = useStore(projectStore, (state) => state.project)
+  const selectedHotspotId = useStore(
+    projectStore,
+    (state) => state.selectedHotspotId,
+  )
   const actions = useStore(projectStore, (state) => state.actions)
   const [error, setError] = useState<string | null>(null)
   const [warnings, setWarnings] = useState<string[]>([])
@@ -99,6 +103,14 @@ function App() {
             imageUrl={imageUrl}
             naturalWidth={page.width}
             naturalHeight={page.height}
+            editing={{
+              pageId: page.id,
+              hotspots: project.hotspots.filter(
+                (hotspot) => hotspot.pageId === page.id,
+              ),
+              selectedHotspotId,
+              actions,
+            }}
           />
         </div>
       )}

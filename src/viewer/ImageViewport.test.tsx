@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useStore } from 'zustand/react'
+import { createProjectStore, type ProjectStore } from '../store'
 import { ImageViewport } from './ImageViewport'
 
 function mockContainerRect(rect: Partial<DOMRect>) {
@@ -22,6 +24,61 @@ function mockContainerRect(rect: Partial<DOMRect>) {
 function readTransform() {
   const content = screen.getByTestId('viewport-content')
   return content.style.transform
+}
+
+function createEditorStore() {
+  const store = createProjectStore()
+  store.getState().actions.createProject({ id: 'project', name: 'Editor' })
+  store.getState().actions.addPage({ id: 'page-1', width: 800, height: 600 })
+  return store
+}
+
+function EditorHarness({ store }: { store: ProjectStore }) {
+  const project = useStore(store, (state) => state.project)
+  const selectedHotspotId = useStore(store, (state) => state.selectedHotspotId)
+  const actions = useStore(store, (state) => state.actions)
+
+  return (
+    <ImageViewport
+      imageUrl="blob:image"
+      naturalWidth={800}
+      naturalHeight={600}
+      editing={{
+        pageId: 'page-1',
+        hotspots: project.hotspots,
+        selectedHotspotId,
+        actions,
+      }}
+    />
+  )
+}
+
+function addPoint(store: ProjectStore, id = 'point-1') {
+  store.getState().actions.createHotspot({
+    id,
+    pageId: 'page-1',
+    shape: 'point',
+    x: 0.5,
+    y: 0.5,
+    title: 'Point',
+    description: '',
+    tags: [],
+  })
+}
+
+function addRectangle(store: ProjectStore, id = 'rect-1') {
+  store.getState().actions.createHotspot({
+    id,
+    pageId: 'page-1',
+    shape: 'rect',
+    x: 0.8,
+    y: 0.8,
+    w: 0.1,
+    h: 0.1,
+    title: 'Rectangle',
+    description: '',
+    tags: [],
+  })
 }
 
 beforeEach(() => {
@@ -255,5 +312,236 @@ describe('ImageViewport', () => {
     })
 
     expect(readTransform()).toBe(beforeStray)
+  })
+})
+
+describe('ImageViewport hotspot editing', () => {
+  it('creates and selects a point from a click in draw mode', () => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Draw hotspot' }))
+    const container = screen.getByTestId('viewport-container')
+
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 75,
+    })
+    fireEvent.pointerUp(container, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 75,
+    })
+
+    const [hotspot] = store.getState().project.hotspots
+    expect(hotspot).toMatchObject({ shape: 'point', x: 0.25, y: 0.25 })
+    expect(store.getState().selectedHotspotId).toBe(hotspot.id)
+  })
+
+  it.each([
+    ['down-right', { x: 80, y: 60 }, { x: 280, y: 210 }],
+    ['up-left', { x: 280, y: 210 }, { x: 80, y: 60 }],
+    ['up-right', { x: 80, y: 210 }, { x: 280, y: 60 }],
+    ['down-left', { x: 280, y: 60 }, { x: 80, y: 210 }],
+  ])('creates normalized rectangles when drawing %s', (_, start, end) => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Draw hotspot' }))
+    const container = screen.getByTestId('viewport-container')
+
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      clientX: start.x,
+      clientY: start.y,
+    })
+    fireEvent.pointerMove(container, {
+      pointerId: 1,
+      clientX: end.x,
+      clientY: end.y,
+    })
+    fireEvent.pointerUp(container, {
+      pointerId: 1,
+      clientX: end.x,
+      clientY: end.y,
+    })
+
+    const hotspot = store.getState().project.hotspots[0]
+    expect(hotspot).toMatchObject({
+      shape: 'rect',
+      x: 0.2,
+      y: 0.2,
+    })
+    expect(hotspot.shape === 'rect' && hotspot.w).toBeCloseTo(0.5)
+    expect(hotspot.shape === 'rect' && hotspot.h).toBeCloseTo(0.5)
+  })
+
+  it('rejects a dragged rectangle below 12 rendered pixels', () => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Draw hotspot' }))
+    const container = screen.getByTestId('viewport-container')
+
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerMove(container, {
+      pointerId: 1,
+      clientX: 111,
+      clientY: 111,
+    })
+    fireEvent.pointerUp(container, {
+      pointerId: 1,
+      clientX: 111,
+      clientY: 111,
+    })
+
+    expect(store.getState().project.hotspots).toEqual([])
+  })
+
+  it('clamps a rectangle draw to page bounds after zooming', () => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Draw hotspot' }))
+    const container = screen.getByTestId('viewport-container')
+
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      clientX: -100,
+      clientY: -100,
+    })
+    fireEvent.pointerMove(container, {
+      pointerId: 1,
+      clientX: 1000,
+      clientY: 1000,
+    })
+    fireEvent.pointerUp(container, {
+      pointerId: 1,
+      clientX: 1000,
+      clientY: 1000,
+    })
+
+    expect(store.getState().project.hotspots[0]).toMatchObject({
+      shape: 'rect',
+      x: 0,
+      y: 0,
+      w: 1,
+      h: 1,
+    })
+  })
+
+  it('selects visibly from the keyboard and deletes with Delete', () => {
+    const store = createEditorStore()
+    addPoint(store)
+    render(<EditorHarness store={store} />)
+    const hotspot = screen.getByRole('button', { name: 'Point' })
+
+    fireEvent.keyDown(hotspot, { key: 'Enter' })
+    expect(store.getState().selectedHotspotId).toBe('point-1')
+    expect(hotspot.getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.keyDown(hotspot, { key: 'Delete' })
+    expect(store.getState().project.hotspots).toEqual([])
+  })
+
+  it('deletes the selected hotspot with the visible action', () => {
+    const store = createEditorStore()
+    addPoint(store)
+    store.getState().actions.selectHotspot('point-1')
+    render(<EditorHarness store={store} />)
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Delete selected hotspot' }),
+    )
+
+    expect(store.getState().project.hotspots).toEqual([])
+  })
+
+  it('moves points and clamps rectangles at the page boundary', () => {
+    const pointStore = createEditorStore()
+    addPoint(pointStore)
+    const { unmount } = render(<EditorHarness store={pointStore} />)
+    const point = screen.getByRole('button', { name: 'Point' })
+    fireEvent.pointerDown(point, { pointerId: 1, clientX: 200, clientY: 150 })
+    fireEvent.pointerMove(point, { pointerId: 1, clientX: 240, clientY: 180 })
+    fireEvent.pointerUp(point, { pointerId: 1, clientX: 240, clientY: 180 })
+    expect(pointStore.getState().project.hotspots[0]).toMatchObject({
+      x: 0.6,
+      y: 0.6,
+    })
+    unmount()
+
+    const rectangleStore = createEditorStore()
+    addRectangle(rectangleStore)
+    render(<EditorHarness store={rectangleStore} />)
+    const rectangle = screen.getByRole('button', { name: 'Rectangle' })
+    fireEvent.pointerDown(rectangle, {
+      pointerId: 2,
+      clientX: 340,
+      clientY: 255,
+    })
+    fireEvent.pointerMove(rectangle, {
+      pointerId: 2,
+      clientX: 540,
+      clientY: 455,
+    })
+    fireEvent.pointerUp(rectangle, {
+      pointerId: 2,
+      clientX: 540,
+      clientY: 455,
+    })
+    expect(rectangleStore.getState().project.hotspots[0]).toMatchObject({
+      x: 0.9,
+      y: 0.9,
+      w: 0.1,
+      h: 0.1,
+    })
+  })
+
+  it('resizes rectangles from the handle and clamps the far edge', () => {
+    const store = createEditorStore()
+    addRectangle(store)
+    store.getState().actions.selectHotspot('rect-1')
+    render(<EditorHarness store={store} />)
+    const handle = screen.getByRole('button', { name: 'Resize Rectangle' })
+
+    fireEvent.pointerDown(handle, {
+      pointerId: 1,
+      clientX: 360,
+      clientY: 270,
+    })
+    fireEvent.pointerMove(handle, {
+      pointerId: 1,
+      clientX: 760,
+      clientY: 670,
+    })
+    fireEvent.pointerUp(handle, {
+      pointerId: 1,
+      clientX: 760,
+      clientY: 670,
+    })
+
+    const resized = store.getState().project.hotspots[0]
+    expect(resized).toMatchObject({
+      shape: 'rect',
+      x: 0.8,
+      y: 0.8,
+    })
+    expect(resized.shape === 'rect' && resized.w).toBeCloseTo(0.2)
+    expect(resized.shape === 'rect' && resized.h).toBeCloseTo(0.2)
+  })
+
+  it('keeps single-pointer pan available outside draw mode', () => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    const container = screen.getByTestId('viewport-container')
+
+    fireEvent.pointerDown(container, { pointerId: 1, clientX: 50, clientY: 40 })
+    fireEvent.pointerMove(container, { pointerId: 1, clientX: 80, clientY: 65 })
+
+    expect(readTransform()).toContain('translate(30px, 25px)')
+    expect(store.getState().project.hotspots).toEqual([])
   })
 })
