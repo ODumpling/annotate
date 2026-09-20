@@ -124,8 +124,8 @@ describe('App image upload', () => {
       dataTransfer: { files: [file] },
     })
 
-    const status = await screen.findByRole('status')
-    expect(status.textContent).toMatch(/larger than the recommended/i)
+    const status = await screen.findByText(/larger than the recommended/i)
+    expect(status.closest('[role="status"]')).not.toBeNull()
   })
 
   it('ignores a second upload while one is still in flight', async () => {

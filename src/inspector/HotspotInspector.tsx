@@ -108,7 +108,7 @@ function HotspotRow({
 
   return (
     <li
-      className={`rounded-lg border p-3 ${
+      className={`rounded-lg border p-3 text-slate-900 ${
         selected
           ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
           : 'border-slate-300 bg-white'
@@ -275,7 +275,7 @@ export function HotspotInspector({
     <aside aria-label="Hotspot inspector" className="w-full max-w-md p-4">
       <h2 className="mb-3 text-lg font-semibold">Hotspots</h2>
       {orderedHotspots.length === 0 ? (
-        <p className="text-sm text-slate-600">No hotspots on this page.</p>
+        <p className="text-sm text-slate-400">No hotspots on this page.</p>
       ) : (
         <ol className="grid gap-3">
           {orderedHotspots.map((hotspot, position) => (

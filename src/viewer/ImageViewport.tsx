@@ -37,6 +37,9 @@ const INITIAL_TRANSFORM: ViewportTransform = {
   translateY: 0,
 }
 
+const TOOLBAR_BUTTON_CLASS =
+  'min-h-[2rem] rounded border border-slate-700 px-3 py-1.5 aria-pressed:bg-slate-800 disabled:opacity-50'
+
 export type ViewerMode = 'pan' | 'draw'
 
 type HotspotActions = Pick<
@@ -483,6 +486,7 @@ export function ImageViewport({
       >
         <button
           type="button"
+          className={TOOLBAR_BUTTON_CLASS}
           onClick={() => zoomFromCenter(1 / BUTTON_ZOOM_FACTOR)}
         >
           Zoom out
@@ -490,17 +494,23 @@ export function ImageViewport({
         <span data-testid="zoom-level">{zoomPercent}%</span>
         <button
           type="button"
+          className={TOOLBAR_BUTTON_CLASS}
           onClick={() => zoomFromCenter(BUTTON_ZOOM_FACTOR)}
         >
           Zoom in
         </button>
-        <button type="button" onClick={fitToWidth}>
+        <button
+          type="button"
+          className={TOOLBAR_BUTTON_CLASS}
+          onClick={fitToWidth}
+        >
           Fit to width
         </button>
         {editing && (
           <>
             <button
               type="button"
+              className={TOOLBAR_BUTTON_CLASS}
               aria-pressed={mode === 'pan'}
               onClick={() => setMode('pan')}
             >
@@ -508,6 +518,7 @@ export function ImageViewport({
             </button>
             <button
               type="button"
+              className={TOOLBAR_BUTTON_CLASS}
               aria-pressed={mode === 'draw'}
               onClick={() => setMode('draw')}
             >
@@ -515,6 +526,7 @@ export function ImageViewport({
             </button>
             <button
               type="button"
+              className={TOOLBAR_BUTTON_CLASS}
               disabled={!selectedHotspot}
               onClick={() => {
                 if (selectedHotspot) {
@@ -578,7 +590,7 @@ export function ImageViewport({
                     aria-label={label}
                     aria-pressed={selected}
                     data-hotspot-id={hotspot.id}
-                    className={`h-6 w-6 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-sky-500/70 ${
+                    className={`h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-sky-500/70 ${
                       selected
                         ? 'border-yellow-300 ring-2 ring-yellow-300'
                         : 'border-white'
@@ -635,7 +647,7 @@ export function ImageViewport({
                     <button
                       type="button"
                       aria-label={`Resize ${label}`}
-                      className="absolute -right-2 -bottom-2 h-4 w-4 cursor-se-resize rounded-sm border border-slate-950 bg-yellow-300"
+                      className="absolute -right-3 -bottom-3 h-6 w-6 cursor-se-resize rounded-sm border border-slate-950 bg-yellow-300"
                       onPointerDown={(event) => beginResize(event, hotspot)}
                       onPointerMove={resizeSelected}
                       onPointerUp={(event) => {

@@ -25,6 +25,9 @@ function App() {
   const [warnings, setWarnings] = useState<string[]>([])
   const [isIngesting, setIsIngesting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
+  const [exportSuccessMessage, setExportSuccessMessage] = useState<
+    string | null
+  >(null)
   const [isExporting, setIsExporting] = useState(false)
   const [mode, setMode] = useState<AppMode>('edit')
 
@@ -78,18 +81,21 @@ function App() {
   async function handleExport() {
     if (isExporting) return
     setExportError(null)
+    setExportSuccessMessage(null)
     setIsExporting(true)
     try {
       const result = await exportProject(project, getBlob)
       const blob = new Blob([result.html], { type: 'text/html' })
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
+      const fileName = exportFileName(project)
       anchor.href = url
-      anchor.download = exportFileName(project)
+      anchor.download = fileName
       document.body.appendChild(anchor)
       anchor.click()
       document.body.removeChild(anchor)
       URL.revokeObjectURL(url)
+      setExportSuccessMessage(`Exported ${fileName}.`)
     } catch (cause) {
       setExportError(
         cause instanceof ExportError
@@ -150,7 +156,9 @@ function App() {
             />
           </label>
           {isIngesting && (
-            <p className="text-sm text-slate-400">Reading image…</p>
+            <p role="status" className="text-sm text-slate-400">
+              Reading image…
+            </p>
           )}
           {error && (
             <p role="alert" className="text-sm text-red-400">
@@ -193,6 +201,16 @@ function App() {
                 >
                   {isExporting ? 'Exporting…' : 'Export standalone HTML'}
                 </button>
+                {isExporting && (
+                  <p role="status" className="sr-only">
+                    Exporting…
+                  </p>
+                )}
+                {exportSuccessMessage && (
+                  <p role="status" className="text-sm text-emerald-400">
+                    {exportSuccessMessage}
+                  </p>
+                )}
                 <HotspotInspector
                   pageId={page.id}
                   hotspots={pageHotspots}
