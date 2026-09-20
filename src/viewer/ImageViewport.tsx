@@ -632,9 +632,15 @@ export function ImageViewport({
               // misrepresenting their size.
               const renderedWidth = hotspot.w * naturalWidth * transform.scale
               const renderedHeight = hotspot.h * naturalHeight * transform.scale
-              const hitAreaGrowth = Math.max(
+              // Independent per-axis growth: a uniform factor derived from
+              // the smaller dimension would over-grow a thin, wide (or
+              // tall, narrow) rectangle along its already-adequate axis.
+              const hitAreaGrowthX = Math.max(
                 1,
                 MIN_INTERACTIVE_PX / renderedWidth,
+              )
+              const hitAreaGrowthY = Math.max(
+                1,
                 MIN_INTERACTIVE_PX / renderedHeight,
               )
 
@@ -658,7 +664,9 @@ export function ImageViewport({
                     aria-label={label}
                     aria-pressed={selected}
                     className="absolute inset-0 h-full w-full cursor-move bg-transparent"
-                    style={{ transform: `scale(${hitAreaGrowth})` }}
+                    style={{
+                      transform: `scale(${hitAreaGrowthX}, ${hitAreaGrowthY})`,
+                    }}
                     onClick={() => editing.actions.selectHotspot(hotspot.id)}
                     onKeyDown={(event) => handleHotspotKeyDown(event, hotspot)}
                     onPointerDown={(event) => beginMove(event, hotspot)}

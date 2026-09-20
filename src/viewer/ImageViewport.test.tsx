@@ -586,11 +586,35 @@ describe('ImageViewport zoom-invariant target sizes', () => {
     for (let i = 0; i < 20; i += 1) {
       fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
     }
-    // At the 10% zoom floor: 0.1 * 800 * 0.1 = 8px wide, 0.1 * 600 * 0.1 = 6px
-    // tall — growth is max(1, 24/8, 24/6) = 4.
-    expect(rectangle.style.transform).toBe('scale(4)')
+    // At the 10% zoom floor: 0.1 * 800 * 0.1 = 8px wide (needs 24/8 = 3x),
+    // 0.1 * 600 * 0.1 = 6px tall (needs 24/6 = 4x) — independent per axis.
+    expect(rectangle.style.transform).toBe('scale(3, 4)')
     expect(visibleOutline.style.width).toBe('10%')
     expect(visibleOutline.style.height).toBe('10%')
     expect(visibleOutline.style.transform).toBe('')
+  })
+
+  it('grows each hit-area axis independently for a thin, wide rectangle', () => {
+    const store = createEditorStore()
+    store.getState().actions.createHotspot({
+      id: 'thin-rect',
+      pageId: 'page-1',
+      shape: 'rect',
+      x: 0.1,
+      y: 0.1,
+      w: 0.5,
+      h: 0.01,
+      title: 'Thin banner',
+      description: '',
+      tags: [],
+    })
+    render(<EditorHarness store={store} />)
+    const rectangle = screen.getByRole('button', { name: 'Thin banner' })
+
+    // Fit-to-width scale is 0.5: width renders at 0.5*800*0.5=200px (already
+    // well above 24px, no growth needed); height renders at
+    // 0.01*600*0.5=3px (needs 24/3=8x). A uniform scale derived from the
+    // shorter axis would balloon the already-adequate width to 1600px.
+    expect(rectangle.style.transform).toBe('scale(1, 8)')
   })
 })

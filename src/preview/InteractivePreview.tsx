@@ -305,7 +305,7 @@ export function InteractivePreview({
                   </div>
                 ) : null}
                 <button
-                  className="absolute right-3 top-3 rounded-lg border border-slate-600 bg-slate-900 px-3 py-1.5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+                  className="absolute right-3 top-3 rounded-lg border border-slate-500 bg-slate-900 px-3 py-1.5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   onClick={closeCard}
                   ref={closeButtonRef}
                   type="button"
