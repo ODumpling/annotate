@@ -5,6 +5,15 @@ marked.use({
   gfm: true,
   breaks: true,
   tokenizer: {
+    autolink() {
+      return undefined
+    },
+    html() {
+      return undefined
+    },
+    tag() {
+      return undefined
+    },
     url() {
       return undefined
     },
@@ -32,6 +41,13 @@ const ALLOWED_URI_REGEXP = /^(?:https?|mailto):/i
 
 let hooksConfigured = false
 
+declare const sanitizedHtmlBrand: unique symbol
+
+/** HTML that has passed this module's fixed DOMPurify policy. */
+export type SanitizedHtml = string & {
+  readonly [sanitizedHtmlBrand]: true
+}
+
 function ensureLinkHardening() {
   if (hooksConfigured) {
     return
@@ -45,7 +61,7 @@ function ensureLinkHardening() {
   hooksConfigured = true
 }
 
-export function renderDescriptionHtml(markdown: string): string {
+export function renderDescriptionHtml(markdown: string): SanitizedHtml {
   ensureLinkHardening()
   const rawHtml = marked.parse(markdown, { async: false })
   return DOMPurify.sanitize(rawHtml, {
@@ -53,5 +69,5 @@ export function renderDescriptionHtml(markdown: string): string {
     ALLOWED_ATTR,
     ALLOWED_URI_REGEXP,
     ALLOW_DATA_ATTR: false,
-  })
+  }) as SanitizedHtml
 }

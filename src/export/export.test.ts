@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Project } from '../model'
 import { ProjectValidationError } from '../model'
+import * as publicExportApi from './index'
 import {
   EXPORT_BLOCK_BYTES,
   EXPORT_WARN_BYTES,
@@ -83,6 +84,17 @@ function parseExport(html: string) {
 }
 
 describe('standalone HTML export', () => {
+  it('keeps the raw HTML template renderer out of the public API', () => {
+    type PublicApi = typeof import('./index')
+    type RendererIsPrivate = 'renderExportHtml' extends keyof PublicApi
+      ? never
+      : true
+    const rendererIsPrivate: RendererIsPrivate = true
+
+    expect(rendererIsPrivate).toBe(true)
+    expect('renderExportHtml' in publicExportApi).toBe(false)
+  })
+
   it('produces a deterministic document with measured size', async () => {
     const resolver = resolverFor({ 'blob-1': pngBlob() })
     const first = await exportProject(fixtureProject(), resolver)
@@ -162,11 +174,11 @@ describe('standalone HTML export', () => {
     expect(pointHtml).toContain('target="_blank"')
     expect(pointHtml).toContain('rel="noopener noreferrer"')
     expect(pointHtml).not.toContain('<script')
-    expect(pointHtml).not.toContain('alert(1)')
+    expect(pointHtml).toContain('&lt;script&gt;alert(1)&lt;/script&gt;')
 
     const rectHtml = data.hotspots[1].descriptionHtml
     expect(rectHtml).not.toContain('<img')
-    expect(rectHtml).not.toContain('onerror')
+    expect(rectHtml).toContain('&lt;img src=x onerror=alert(2)&gt;')
     expect(rectHtml).toContain('<code>code</code>')
   })
 
@@ -268,10 +280,15 @@ describe('export size thresholds', () => {
     expect(result.sizeWarning).toBe(true)
   })
 
-  it('refuses to generate a real oversized export', async () => {
-    const hugeBlob = new Blob([new Uint8Array(80 * 1048576)])
+  it('preflights an oversized export before reading or encoding its blob', async () => {
+    const arrayBuffer = vi.fn<() => Promise<ArrayBuffer>>()
+    const hugeBlob = {
+      size: 80 * 1048576,
+      arrayBuffer,
+    } as unknown as Blob
     await expect(
       exportProject(fixtureProject(), resolverFor({ 'blob-1': hugeBlob })),
     ).rejects.toThrow(ExportSizeError)
+    expect(arrayBuffer).not.toHaveBeenCalled()
   })
 })

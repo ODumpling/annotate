@@ -3,7 +3,7 @@ import { normalizeMarkerColor } from './color'
 import { blobToDataUrl } from './dataUrl'
 import { ExportError, ExportMissingImageError } from './errors'
 import { renderDescriptionHtml } from './markdown'
-import { evaluateExportSize } from './size'
+import { evaluateExportPreflight, evaluateExportSize } from './size'
 import { utf8ByteLength } from './serialize'
 import {
   renderExportHtml,
@@ -24,12 +24,6 @@ export {
   EXPORT_WARN_BYTES,
 } from './size'
 export { serializeScriptSafeJson, utf8ByteLength } from './serialize'
-export { renderExportHtml } from './template'
-export type {
-  ExportedHotspotData,
-  ExportedPageData,
-  ExportedViewerData,
-} from './template'
 
 export type BlobResolver = (
   blobKey: string,
@@ -69,16 +63,33 @@ export async function exportProject(
     return pageDelta !== 0 ? pageDelta : left.order - right.order
   })
 
+  const blobByKey = new Map<string, Blob>()
+  for (const page of pages) {
+    const blobKey = page.renderBlobKey ?? source.blobKey
+    if (blobByKey.has(blobKey)) {
+      continue
+    }
+    const blob = await resolveBlob(blobKey)
+    if (!blob) {
+      throw new ExportMissingImageError(`no stored blob for key ${blobKey}`)
+    }
+    blobByKey.set(blobKey, blob)
+  }
+
+  evaluateExportPreflight(
+    pages.map((page) => ({
+      blobBytes: blobByKey.get(page.renderBlobKey ?? source.blobKey)!.size,
+      mimeType: source.mimeType,
+    })),
+  )
+
   const dataUrlByBlobKey = new Map<string, string>()
   const resolveImageDataUrl = async (blobKey: string) => {
     const cached = dataUrlByBlobKey.get(blobKey)
     if (cached !== undefined) {
       return cached
     }
-    const blob = await resolveBlob(blobKey)
-    if (!blob) {
-      throw new ExportMissingImageError(`no stored blob for key ${blobKey}`)
-    }
+    const blob = blobByKey.get(blobKey)!
     const dataUrl = await blobToDataUrl(blob, source.mimeType)
     dataUrlByBlobKey.set(blobKey, dataUrl)
     return dataUrl

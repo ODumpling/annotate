@@ -1,4 +1,5 @@
 import type { Hotspot } from '../model'
+import type { SanitizedHtml } from './markdown'
 import { serializeScriptSafeJson } from './serialize'
 
 export interface ExportedPageData {
@@ -17,7 +18,7 @@ export interface ExportedHotspotData {
   w?: number
   h?: number
   title: string
-  descriptionHtml: string
+  descriptionHtml: SanitizedHtml
   tags: string[]
   color: string
 }

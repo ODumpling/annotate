@@ -69,31 +69,37 @@ describe('description markdown subset', () => {
     expect(html).not.toContain('javascript:')
   })
 
-  it('removes scripts, images, event handlers, and raw HTML', () => {
+  it('renders raw HTML as literal escaped text', () => {
     const script = renderDescriptionHtml('<script>alert(1)</script>')
-    expect(script).not.toContain('script')
-    expect(script).not.toContain('alert')
+    expect(script).not.toContain('<script')
+    expect(firstBodyNode(script).textContent).toBe('<script>alert(1)</script>')
 
     const image = renderDescriptionHtml('<img src=x onerror=alert(2)>')
-    expect(image).not.toContain('img')
-    expect(image).not.toContain('onerror')
+    expect(image).not.toContain('<img')
+    expect(firstBodyNode(image).textContent).toBe(
+      '<img src=x onerror=alert(2)>',
+    )
 
     const styledLink = renderDescriptionHtml(
       '<a href="https://ok.example" onclick="steal()" style="color:red">x</a>',
     )
-    expect(styledLink).not.toContain('onclick')
-    expect(styledLink).not.toContain('style')
-    expect(styledLink).toContain('href="https://ok.example"')
-    expect(styledLink).toContain('rel="noopener noreferrer"')
+    expect(firstBodyNode(styledLink).querySelector('a')).toBeNull()
+    expect(firstBodyNode(styledLink).textContent).toBe(
+      '<a href="https://ok.example" onclick="steal()" style="color:red">x</a>',
+    )
 
     const rawTags = renderDescriptionHtml('<b>bold</b> <span>text</span>')
     expect(rawTags).not.toContain('<b>')
     expect(rawTags).not.toContain('<span>')
-    expect(rawTags).toContain('bold')
+    expect(firstBodyNode(rawTags).textContent).toBe(
+      '<b>bold</b> <span>text</span>',
+    )
 
     const css = renderDescriptionHtml('<style>body{background:red}</style>')
-    expect(css).not.toContain('style')
-    expect(css).not.toContain('background')
+    expect(css).not.toContain('<style')
+    expect(firstBodyNode(css).textContent).toBe(
+      '<style>body{background:red}</style>',
+    )
   })
 
   it('disables headings, images, tables, task lists, and autolinks', () => {
@@ -120,6 +126,14 @@ describe('description markdown subset', () => {
     const autolink = renderDescriptionHtml('see https://example.com now')
     expect(autolink).not.toContain('<a')
     expect(autolink).toContain('https://example.com')
+
+    const angleUrl = renderDescriptionHtml('<https://example.com>')
+    expect(firstBodyNode(angleUrl).querySelector('a')).toBeNull()
+    expect(firstBodyNode(angleUrl).textContent).toBe('<https://example.com>')
+
+    const angleEmail = renderDescriptionHtml('<user@example.com>')
+    expect(firstBodyNode(angleEmail).querySelector('a')).toBeNull()
+    expect(firstBodyNode(angleEmail).textContent).toBe('<user@example.com>')
   })
 
   it('keeps fenced code as inert text', () => {
