@@ -31,6 +31,9 @@ const POINT_GESTURE_MAX_PX = 4
 /** Both rendered dimensions must reach this size for a drag to create a rect. */
 export const MIN_RECTANGLE_RENDERED_PX = 12
 
+/** WCAG 2.2 SC 2.5.8 (AA) minimum target size, in CSS px, at any zoom level. */
+export const MIN_INTERACTIVE_PX = 24
+
 const INITIAL_TRANSFORM: ViewportTransform = {
   scale: 1,
   translateX: 0,
@@ -38,7 +41,7 @@ const INITIAL_TRANSFORM: ViewportTransform = {
 }
 
 const TOOLBAR_BUTTON_CLASS =
-  'min-h-[2rem] rounded border border-slate-700 px-3 py-1.5 aria-pressed:bg-slate-800 disabled:opacity-50'
+  'min-h-[2rem] rounded border border-slate-500 px-3 py-1.5 aria-pressed:bg-slate-800 disabled:opacity-50'
 
 export type ViewerMode = 'pan' | 'draw'
 
@@ -590,12 +593,21 @@ export function ImageViewport({
                     aria-label={label}
                     aria-pressed={selected}
                     data-hotspot-id={hotspot.id}
-                    className={`h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-sky-500/70 ${
+                    className={`h-7 w-7 rounded-full border-2 bg-sky-500/70 ${
                       selected
                         ? 'border-yellow-300 ring-2 ring-yellow-300'
                         : 'border-white'
                     }`}
-                    style={commonStyle}
+                    style={{
+                      ...commonStyle,
+                      // Points render at a fixed 28px regardless of zoom —
+                      // without this, a 10-400% zoom range would shrink the
+                      // marker below the WCAG 2.2 24px minimum target size
+                      // (translate first, in the element's own pre-scale
+                      // space, then scale around the now-centered origin so
+                      // the anchor point doesn't drift).
+                      transform: `translate(-50%, -50%) scale(${1 / transform.scale})`,
+                    }}
                     onClick={() => editing.actions.selectHotspot(hotspot.id)}
                     onKeyDown={(event) => handleHotspotKeyDown(event, hotspot)}
                     onPointerDown={(event) => beginMove(event, hotspot)}
@@ -610,6 +622,21 @@ export function ImageViewport({
                   />
                 )
               }
+
+              // A rectangle's visible bounds follow its actual normalized
+              // geometry (never distorted), but a rectangle drawn small
+              // and/or viewed at a low zoom can render well under the WCAG
+              // 2.2 24px target-size minimum. Grow only the invisible hit
+              // area (not the visible border) to compensate, so tiny or
+              // zoomed-out rectangles stay tappable without visually
+              // misrepresenting their size.
+              const renderedWidth = hotspot.w * naturalWidth * transform.scale
+              const renderedHeight = hotspot.h * naturalHeight * transform.scale
+              const hitAreaGrowth = Math.max(
+                1,
+                MIN_INTERACTIVE_PX / renderedWidth,
+                MIN_INTERACTIVE_PX / renderedHeight,
+              )
 
               return (
                 <div
@@ -631,6 +658,7 @@ export function ImageViewport({
                     aria-label={label}
                     aria-pressed={selected}
                     className="absolute inset-0 h-full w-full cursor-move bg-transparent"
+                    style={{ transform: `scale(${hitAreaGrowth})` }}
                     onClick={() => editing.actions.selectHotspot(hotspot.id)}
                     onKeyDown={(event) => handleHotspotKeyDown(event, hotspot)}
                     onPointerDown={(event) => beginMove(event, hotspot)}
@@ -648,6 +676,7 @@ export function ImageViewport({
                       type="button"
                       aria-label={`Resize ${label}`}
                       className="absolute -right-3 -bottom-3 h-6 w-6 cursor-se-resize rounded-sm border border-slate-950 bg-yellow-300"
+                      style={{ transform: `scale(${1 / transform.scale})` }}
                       onPointerDown={(event) => beginResize(event, hotspot)}
                       onPointerMove={resizeSelected}
                       onPointerUp={(event) => {

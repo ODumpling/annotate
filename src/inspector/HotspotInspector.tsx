@@ -111,7 +111,7 @@ function HotspotRow({
       className={`rounded-lg border p-3 text-slate-900 ${
         selected
           ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-          : 'border-slate-300 bg-white'
+          : 'border-slate-500 bg-white'
       }`}
       data-selected={selected ? 'true' : 'false'}
       onClick={() => actions.selectHotspot(hotspot.id)}
@@ -127,6 +127,7 @@ function HotspotRow({
         </button>
         <button
           aria-label={`Move ${displayName(hotspot)} up`}
+          className="min-h-6 min-w-6 disabled:opacity-40"
           disabled={position === 0}
           onClick={() => move(hotspot.id, -1)}
           type="button"
@@ -135,6 +136,7 @@ function HotspotRow({
         </button>
         <button
           aria-label={`Move ${displayName(hotspot)} down`}
+          className="min-h-6 min-w-6 disabled:opacity-40"
           disabled={position === count - 1}
           onClick={() => move(hotspot.id, 1)}
           type="button"
@@ -143,7 +145,7 @@ function HotspotRow({
         </button>
         <button
           aria-label={`Delete ${displayName(hotspot)}`}
-          className="text-red-700"
+          className="min-h-6 px-1 text-red-700"
           onClick={(event) => {
             event.stopPropagation()
             actions.deleteHotspot(hotspot.id)
@@ -160,7 +162,7 @@ function HotspotRow({
           <input
             aria-describedby={titleError ? `${fieldId}-title-error` : undefined}
             aria-invalid={titleError ? 'true' : undefined}
-            className="w-full rounded border border-slate-300 px-2 py-1"
+            className="w-full rounded border border-slate-500 px-2 py-1"
             id={`${fieldId}-title`}
             onChange={updateTitle}
             type="text"
@@ -184,7 +186,7 @@ function HotspotRow({
               descriptionError ? `${fieldId}-description-error` : undefined
             }
             aria-invalid={descriptionError ? 'true' : undefined}
-            className="min-h-24 w-full rounded border border-slate-300 px-2 py-1"
+            className="min-h-24 w-full rounded border border-slate-500 px-2 py-1"
             id={`${fieldId}-description`}
             onChange={updateDescription}
             value={hotspot.description}
@@ -205,7 +207,7 @@ function HotspotRow({
           <input
             aria-describedby={colorError ? `${fieldId}-color-error` : undefined}
             aria-invalid={colorError ? 'true' : undefined}
-            className="w-full rounded border border-slate-300 px-2 py-1 font-mono"
+            className="w-full rounded border border-slate-500 px-2 py-1 font-mono"
             defaultValue={hotspot.color ?? ''}
             id={`${fieldId}-color`}
             key={hotspot.color ?? 'empty'}
@@ -227,7 +229,7 @@ function HotspotRow({
         <label htmlFor={`${fieldId}-tags`}>
           <span className="block text-sm font-medium">Tags</span>
           <input
-            className="w-full rounded border border-slate-300 px-2 py-1"
+            className="w-full rounded border border-slate-500 px-2 py-1"
             defaultValue={hotspot.tags.join(', ')}
             id={`${fieldId}-tags`}
             key={hotspot.tags.join('\u0000')}

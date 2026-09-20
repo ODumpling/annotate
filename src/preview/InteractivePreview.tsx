@@ -280,7 +280,7 @@ export function InteractivePreview({
               <div
                 aria-labelledby={titleId}
                 aria-modal="true"
-                className="relative max-h-[80vh] w-full max-w-lg overflow-auto rounded-xl border border-slate-700 bg-slate-800 p-5 text-slate-100 shadow-2xl"
+                className="relative max-h-[80vh] w-full max-w-lg overflow-auto rounded-xl border border-slate-500 bg-slate-900 p-5 text-slate-100 shadow-2xl"
                 role="dialog"
               >
                 <h2 className="mb-3 pr-16 text-xl font-semibold" id={titleId}>

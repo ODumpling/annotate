@@ -215,6 +215,51 @@ describe('App inspector and export wiring', () => {
       exportFileName(projectStore.getState().project),
     )
   })
+
+  it('announces export success so it is not silent for screen reader users', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => ({ width: 800, height: 600, close: vi.fn() })),
+    )
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    render(<App />)
+    fireEvent.drop(screen.getByText(/drag and drop/i), {
+      dataTransfer: { files: [validPngFile()] },
+    })
+    await screen.findByRole('img', { name: /uploaded document page/i })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /export standalone html/i }),
+    )
+
+    const status = await screen.findByText(/^Exported .*\.html\.$/)
+    expect(status.closest('[role="status"]')).not.toBeNull()
+  })
+})
+
+describe('App loading announcements', () => {
+  it('announces image-reading progress via a status role', async () => {
+    let releaseDecode!: () => void
+    const decode = new Promise<void>((resolve) => {
+      releaseDecode = resolve
+    })
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => {
+        await decode
+        return { width: 800, height: 600, close: vi.fn() }
+      }),
+    )
+    render(<App />)
+
+    fireEvent.drop(screen.getByText(/drag and drop/i), {
+      dataTransfer: { files: [validPngFile()] },
+    })
+
+    const status = await screen.findByText(/reading image/i)
+    expect(status.closest('[role="status"]')).not.toBeNull()
+    releaseDecode()
+  })
 })
 
 describe('App edit/preview mode toggle', () => {

@@ -5,8 +5,10 @@ import { contrastRatio, meetsWcagAA } from './contrast'
  * Tailwind's utility classes aren't loaded in the Vitest environment (no CSS
  * pipeline runs here), so automated tools like axe-core can't evaluate real
  * rendered contrast in unit tests. This records the actual color pairs the
- * app uses and checks them mathematically against WCAG AA instead. If a
- * color pair below changes, or a new one is introduced, it belongs here too.
+ * app uses — both text (4.5:1) and non-text UI components such as borders,
+ * per WCAG 1.4.11 (3:1) — and checks them mathematically against WCAG AA
+ * instead. If a color pair below changes, or a new one is introduced, it
+ * belongs here too.
  *
  * Tailwind v4 defines its palette in OKLCH (see node_modules/tailwindcss/
  * theme.css), not sRGB hex. These are the sRGB values that OKLCH resolves to
@@ -25,6 +27,8 @@ const AMBER_400 = '#ffb900'
 const EMERALD_400 = '#00d492'
 const WHITE = '#ffffff'
 const BLUE_50 = '#eff6ff'
+const SLATE_500 = '#62748e'
+const YELLOW_300 = '#ffdf20'
 
 describe('app color pairs meet WCAG AA', () => {
   it.each([
@@ -47,6 +51,42 @@ describe('app color pairs meet WCAG AA', () => {
       'text',
     ],
     ['inspector error/delete text (red-700 on white)', RED_700, WHITE, 'text'],
+    [
+      'inspector field border (slate-500 on white)',
+      SLATE_500,
+      WHITE,
+      'large-text-or-ui',
+    ],
+    [
+      'inspector field border, selected row (slate-500 on blue-50)',
+      SLATE_500,
+      BLUE_50,
+      'large-text-or-ui',
+    ],
+    [
+      'dark-theme control border (slate-500 on slate-950)',
+      SLATE_500,
+      SLATE_950,
+      'large-text-or-ui',
+    ],
+    [
+      'dark-theme control border, toggled (slate-500 on slate-800)',
+      SLATE_500,
+      SLATE_800,
+      'large-text-or-ui',
+    ],
+    [
+      'preview dialog border (slate-500 on slate-900)',
+      SLATE_500,
+      SLATE_900,
+      'large-text-or-ui',
+    ],
+    [
+      'resize handle border (slate-950 on yellow-300)',
+      SLATE_950,
+      YELLOW_300,
+      'large-text-or-ui',
+    ],
   ] as const)('%s', (_label, foreground, background, usage) => {
     const ratio = contrastRatio(foreground, background)
     expect(meetsWcagAA(ratio, usage)).toBe(true)

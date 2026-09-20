@@ -545,3 +545,52 @@ describe('ImageViewport hotspot editing', () => {
     expect(store.getState().project.hotspots).toEqual([])
   })
 })
+
+describe('ImageViewport zoom-invariant target sizes', () => {
+  it('keeps the point marker at a constant rendered size regardless of zoom', () => {
+    const store = createEditorStore()
+    addPoint(store)
+    render(<EditorHarness store={store} />)
+    const marker = screen.getByRole('button', { name: 'Point' })
+
+    // Fit-to-width scale is 0.5 (400px container / 800px natural width).
+    expect(marker.style.transform).toBe('translate(-50%, -50%) scale(2)')
+
+    for (let i = 0; i < 20; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    }
+    // Clamped at the 10% zoom floor.
+    expect(marker.style.transform).toBe('translate(-50%, -50%) scale(10)')
+  })
+
+  it('grows the resize handle to compensate for zoom, independent of the rectangle', () => {
+    const store = createEditorStore()
+    addRectangle(store)
+    store.getState().actions.selectHotspot('rect-1')
+    render(<EditorHarness store={store} />)
+
+    for (let i = 0; i < 20; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    }
+    const handle = screen.getByRole('button', { name: 'Resize Rectangle' })
+    expect(handle.style.transform).toBe('scale(10)')
+  })
+
+  it('grows the invisible hit area, not the visible outline, for a small or zoomed-out rectangle', () => {
+    const store = createEditorStore()
+    addRectangle(store) // w: 0.1, h: 0.1 on an 800x600 page
+    render(<EditorHarness store={store} />)
+    const rectangle = screen.getByRole('button', { name: 'Rectangle' })
+    const visibleOutline = rectangle.parentElement as HTMLElement
+
+    for (let i = 0; i < 20; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: 'Zoom out' }))
+    }
+    // At the 10% zoom floor: 0.1 * 800 * 0.1 = 8px wide, 0.1 * 600 * 0.1 = 6px
+    // tall — growth is max(1, 24/8, 24/6) = 4.
+    expect(rectangle.style.transform).toBe('scale(4)')
+    expect(visibleOutline.style.width).toBe('10%')
+    expect(visibleOutline.style.height).toBe('10%')
+    expect(visibleOutline.style.transform).toBe('')
+  })
+})

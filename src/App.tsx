@@ -121,7 +121,7 @@ function App() {
             role="tab"
             aria-selected={mode === 'edit'}
             onClick={() => setMode('edit')}
-            className="rounded-lg border border-slate-700 px-4 py-1.5 font-medium aria-selected:bg-slate-800"
+            className="rounded-lg border border-slate-500 px-4 py-1.5 font-medium aria-selected:bg-slate-800"
           >
             Edit
           </button>
@@ -130,7 +130,7 @@ function App() {
             role="tab"
             aria-selected={mode === 'preview'}
             onClick={() => setMode('preview')}
-            className="rounded-lg border border-slate-700 px-4 py-1.5 font-medium aria-selected:bg-slate-800"
+            className="rounded-lg border border-slate-500 px-4 py-1.5 font-medium aria-selected:bg-slate-800"
           >
             Preview
           </button>
@@ -139,7 +139,7 @@ function App() {
       {mode === 'edit' && (
         <>
           <label
-            className="flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-slate-700 px-6 py-8 text-center text-sm text-slate-400"
+            className="flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-slate-500 px-6 py-8 text-center text-sm text-slate-400"
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => {
               event.preventDefault()
@@ -197,7 +197,7 @@ function App() {
                   type="button"
                   disabled={isExporting}
                   onClick={() => void handleExport()}
-                  className="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium disabled:opacity-50"
+                  className="rounded-lg border border-slate-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
                 >
                   {isExporting ? 'Exporting…' : 'Export standalone HTML'}
                 </button>
