@@ -9,6 +9,7 @@ import {
 } from './ingest'
 import { HotspotInspector } from './inspector'
 import { InteractivePreview } from './preview'
+import { ProjectSettingsPanel } from './settings'
 import { projectStore } from './store'
 import { ImageViewport } from './viewer'
 
@@ -211,6 +212,10 @@ function App() {
                     {exportSuccessMessage}
                   </p>
                 )}
+                <ProjectSettingsPanel
+                  settings={project.settings}
+                  actions={actions}
+                />
                 <HotspotInspector
                   pageId={page.id}
                   hotspots={pageHotspots}
