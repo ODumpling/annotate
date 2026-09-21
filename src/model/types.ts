@@ -46,8 +46,12 @@ export interface RectHotspot extends HotspotBase {
 
 export type Hotspot = PointHotspot | RectHotspot
 
+export type ExportTheme = 'dark' | 'light'
+
 export interface ProjectSettings {
   showBadgeNumbers: boolean
+  /** Visual theme for the exported standalone HTML. Defaults to 'dark' when absent. */
+  exportTheme?: ExportTheme
   /** Reserved for a later release. Runtime validation requires false in v1.0. */
   exportedListView: boolean
 }

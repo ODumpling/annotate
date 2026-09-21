@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react'
-import type { ProjectSettings } from '../model'
+import type { ExportTheme, ProjectSettings } from '../model'
 import type { ProjectActions } from '../store'
 
 type SettingsActions = Pick<ProjectActions, 'updateProjectSettings'>
@@ -19,6 +19,12 @@ export function ProjectSettingsPanel({
     })
   }
 
+  function changeExportTheme(event: ChangeEvent<HTMLSelectElement>) {
+    actions.updateProjectSettings({
+      exportTheme: event.currentTarget.value as ExportTheme,
+    })
+  }
+
   return (
     <section aria-label="Project settings" className="w-full max-w-md p-4">
       <h2 className="mb-3 text-lg font-semibold">Settings</h2>
@@ -31,6 +37,21 @@ export function ProjectSettingsPanel({
           type="checkbox"
         />
         Show badge numbers
+      </label>
+      <label
+        className="mt-3 flex items-center justify-between gap-2 text-sm"
+        htmlFor="setting-export-theme"
+      >
+        Export theme
+        <select
+          className="min-h-6 rounded border border-slate-500 px-2 py-1"
+          id="setting-export-theme"
+          onChange={changeExportTheme}
+          value={settings.exportTheme ?? 'dark'}
+        >
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
       </label>
     </section>
   )

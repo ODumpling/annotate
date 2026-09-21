@@ -124,6 +124,7 @@ export async function exportProject(
     schemaVersion: 1,
     name: validated.name,
     showBadgeNumbers: validated.settings.showBadgeNumbers,
+    exportTheme: validated.settings.exportTheme,
     pages: exportedPages,
     hotspots: exportedHotspots,
   }

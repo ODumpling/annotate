@@ -36,4 +36,28 @@ describe('ProjectSettingsPanel', () => {
     fireEvent.click(checkbox)
     expect(store.getState().project.settings.showBadgeNumbers).toBe(true)
   })
+
+  it('defaults the export theme selector to dark when unset', () => {
+    const store = createProjectStore()
+    store.getState().actions.createProject({ id: 'project', name: 'Panel' })
+    render(<SettingsHarness store={store} />)
+
+    const select = screen.getByRole('combobox', {
+      name: 'Export theme',
+    }) as HTMLSelectElement
+    expect(select.value).toBe('dark')
+  })
+
+  it('changes the export theme through the real store', () => {
+    const store = createProjectStore()
+    store.getState().actions.createProject({ id: 'project', name: 'Panel' })
+    render(<SettingsHarness store={store} />)
+
+    const select = screen.getByRole('combobox', { name: 'Export theme' })
+    fireEvent.change(select, { target: { value: 'light' } })
+    expect(store.getState().project.settings.exportTheme).toBe('light')
+
+    fireEvent.change(select, { target: { value: 'dark' } })
+    expect(store.getState().project.settings.exportTheme).toBe('dark')
+  })
 })

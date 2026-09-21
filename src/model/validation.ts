@@ -92,6 +92,7 @@ export const hotspotSchema = z.discriminatedUnion('shape', [
 
 export const projectSettingsSchema = z.strictObject({
   showBadgeNumbers: z.boolean(),
+  exportTheme: z.enum(['dark', 'light']).optional(),
   exportedListView: z.literal(false, {
     error: 'exportedListView is reserved and must be false in v1.0',
   }),

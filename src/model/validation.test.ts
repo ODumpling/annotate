@@ -214,4 +214,36 @@ describe('project runtime validation', () => {
       }),
     ).toThrow(/exportedListView is reserved and must be false/)
   })
+
+  it('accepts an omitted export theme, defaulting at the point of use', () => {
+    const project = validProject()
+    expect(project.settings.exportTheme).toBeUndefined()
+    const parsed = parseProject(project)
+    expect(parsed.settings.exportTheme).toBeUndefined()
+  })
+
+  it('accepts a valid export theme', () => {
+    const parsed = parseProject({
+      ...validProject(),
+      settings: {
+        showBadgeNumbers: true,
+        exportTheme: 'light',
+        exportedListView: false,
+      },
+    })
+    expect(parsed.settings.exportTheme).toBe('light')
+  })
+
+  it('rejects an unrecognized export theme', () => {
+    expect(() =>
+      parseProject({
+        ...validProject(),
+        settings: {
+          showBadgeNumbers: true,
+          exportTheme: 'sepia',
+          exportedListView: false,
+        },
+      }),
+    ).toThrow(/exportTheme/)
+  })
 })

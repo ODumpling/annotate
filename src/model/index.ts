@@ -1,4 +1,5 @@
 export type {
+  ExportTheme,
   Hotspot,
   Page,
   PointHotspot,
