@@ -1,4 +1,5 @@
 import {
+  createEvent,
   fireEvent,
   render,
   screen,
@@ -8,7 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { exportFileName } from './export'
-import { clearBlobs, IMAGE_PIXEL_LIMITS } from './ingest'
+import { clearBlobs, BYTES_PER_MIB, IMAGE_PIXEL_LIMITS, putBlob } from './ingest'
 import { projectStore } from './store'
 
 function u32be(value: number): number[] {
@@ -52,6 +53,14 @@ function validPngFile(name = 'photo.png'): File {
 
 function getFileInput(): HTMLInputElement {
   return document.querySelector('input[type="file"]') as HTMLInputElement
+}
+
+// happy-dom's DragEvent constructor ignores a `relatedTarget` init option,
+// so it must be attached to the event object after construction.
+function dragLeaveWithRelatedTarget(node: Element, relatedTarget: Node) {
+  const event = createEvent.dragLeave(node)
+  Object.defineProperty(event, 'relatedTarget', { value: relatedTarget })
+  fireEvent(node, event)
 }
 
 beforeEach(() => {
@@ -181,6 +190,27 @@ describe('App image upload', () => {
     ).toBeNull()
     expect(projectStore.getState().project.source).toBeNull()
   })
+
+  it('highlights the dropzone while a drag hovers it and ignores child churn', () => {
+    render(<App />)
+    const dropzone = screen.getByText(/drag and drop/i)
+
+    fireEvent.dragEnter(dropzone)
+    expect(dropzone.getAttribute('data-drag-active')).toBe('true')
+
+    // Moving between the label's own children must not clear the highlight.
+    dragLeaveWithRelatedTarget(dropzone, getFileInput())
+    expect(dropzone.getAttribute('data-drag-active')).toBe('true')
+
+    // Leaving the dropzone entirely clears it.
+    dragLeaveWithRelatedTarget(dropzone, document.body)
+    expect(dropzone.getAttribute('data-drag-active')).toBe('false')
+
+    // A completed drop also clears it.
+    fireEvent.dragEnter(dropzone)
+    fireEvent.drop(dropzone, { dataTransfer: { files: [] } })
+    expect(dropzone.getAttribute('data-drag-active')).toBe('false')
+  })
 })
 
 describe('App inspector and export wiring', () => {
@@ -255,6 +285,31 @@ describe('App inspector and export wiring', () => {
 
     const status = await screen.findByText(/^Exported .*\.html\.$/)
     expect(status.closest('[role="status"]')).not.toBeNull()
+  })
+
+  it('warns when an export exceeds the recommended size', async () => {
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    const blobKey = putBlob(new Blob([new Uint8Array(20 * BYTES_PER_MIB)]))
+    projectStore.getState().actions.attachSource({
+      kind: 'image',
+      fileName: 'big.png',
+      mimeType: 'image/png',
+      blobKey,
+    })
+    projectStore.getState().actions.addPage({
+      id: 'page-1',
+      width: 800,
+      height: 600,
+    })
+    render(<App />)
+    await screen.findByRole('img', { name: /uploaded document page/i })
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /export standalone html/i }),
+    )
+
+    const warning = await screen.findByText(/larger than the recommended/i)
+    expect(warning.closest('[role="status"]')).not.toBeNull()
   })
 })
 

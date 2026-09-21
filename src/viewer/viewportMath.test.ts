@@ -103,13 +103,78 @@ describe('zoomByFactor', () => {
 })
 
 describe('panBy', () => {
+  const bounds = {
+    containerWidth: 400,
+    containerHeight: 300,
+    imageWidth: 800,
+    imageHeight: 600,
+  }
+
   it('adds the delta to the current translation without changing scale', () => {
     const transform: ViewportTransform = {
       scale: 1.5,
       translateX: 10,
       translateY: -5,
     }
-    const result = panBy(transform, 4, 6)
+    const result = panBy(transform, 4, 6, bounds)
     expect(result).toEqual({ scale: 1.5, translateX: 14, translateY: 1 })
+  })
+
+  it('clamps pan so a sliver of the image stays visible on each axis', () => {
+    const transform: ViewportTransform = {
+      scale: 1,
+      translateX: 0,
+      translateY: 0,
+    }
+    // Rendered 800x600 in a 400x300 container: translate may range from
+    // 24-800=-776 to 400-24=376 horizontally and 24-600=-576 to 300-24=276
+    // vertically, always keeping 24px of the image on screen.
+    expect(panBy(transform, 10_000, 0, bounds)).toEqual({
+      scale: 1,
+      translateX: 376,
+      translateY: 0,
+    })
+    expect(panBy(transform, -10_000, 0, bounds)).toEqual({
+      scale: 1,
+      translateX: -776,
+      translateY: 0,
+    })
+    expect(panBy(transform, 0, 10_000, bounds)).toEqual({
+      scale: 1,
+      translateX: 0,
+      translateY: 276,
+    })
+    expect(panBy(transform, 0, -10_000, bounds)).toEqual({
+      scale: 1,
+      translateX: 0,
+      translateY: -576,
+    })
+  })
+
+  it('clamps each axis independently at the current scale', () => {
+    const transform: ViewportTransform = {
+      scale: 2,
+      translateX: 0,
+      translateY: 0,
+    }
+    // At 2x the rendered image is 1600x1200: the horizontal ceiling stays
+    // 400-24=376 while the vertical floor widens to 24-1200=-1176.
+    const pannedX = panBy(transform, 5_000, 0, bounds)
+    expect(pannedX.translateX).toBe(376)
+    const pannedY = panBy(transform, 0, -5_000, bounds)
+    expect(pannedY.translateY).toBe(-1_176)
+  })
+
+  it('leaves an axis unclamped when the allowed range is degenerate', () => {
+    const transform: ViewportTransform = {
+      scale: 1,
+      translateX: 100,
+      translateY: 100,
+    }
+    // A 40px-wide image in a 0px container makes the horizontal range
+    // empty (24-40=-16 > 0-24=-24), so that axis passes through untouched.
+    const degenerate = { ...bounds, containerWidth: 0, imageWidth: 40 }
+    const result = panBy(transform, 50, 0, degenerate)
+    expect(result.translateX).toBe(150)
   })
 })

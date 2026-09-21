@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useStore } from 'zustand/react'
 import { createProjectStore, type ProjectStore } from '../store'
@@ -196,6 +196,37 @@ describe('ImageViewport', () => {
 
     fireEvent.wheel(container, { deltaY: 200 })
     expect(screen.getByTestId('zoom-level').textContent).toBe('45%')
+  })
+
+  // React registers its delegated wheel listener as passive, so a page would
+  // still scroll while zooming if the handler relied on that prop; only a
+  // real native, non-passive addEventListener('wheel', ...) can cancel the
+  // default. fireEvent.wheel dispatches a real event too, but it doesn't
+  // prove the listener is non-passive — a genuine WheelEvent with
+  // cancelable: true, checked for defaultPrevented, does.
+  it('cancels the native wheel event so the page does not scroll while zooming', () => {
+    render(
+      <ImageViewport
+        imageUrl="blob:image"
+        naturalWidth={800}
+        naturalHeight={600}
+      />,
+    )
+    const container = screen.getByTestId('viewport-container')
+
+    const event = new WheelEvent('wheel', {
+      deltaY: -200,
+      clientX: 0,
+      clientY: 0,
+      bubbles: true,
+      cancelable: true,
+    })
+    act(() => {
+      container.dispatchEvent(event)
+    })
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(screen.getByTestId('zoom-level').textContent).toBe('65%')
   })
 
   it('pans with a single pointer drag', () => {
@@ -597,6 +628,38 @@ describe('ImageViewport hotspot editing', () => {
     })
     expect(resized.shape === 'rect' && resized.w).toBeCloseTo(0.2)
     expect(resized.shape === 'rect' && resized.h).toBeCloseTo(0.2)
+  })
+
+  it('promotes an active hotspot move to a pinch when a second pointer lands on the viewport', () => {
+    const store = createEditorStore()
+    addPoint(store)
+    render(<EditorHarness store={store} />)
+    const container = screen.getByTestId('viewport-container')
+    const point = screen.getByRole('button', { name: 'Point' })
+
+    // First finger starts moving the hotspot.
+    fireEvent.pointerDown(point, { pointerId: 1, clientX: 200, clientY: 150 })
+
+    // A second finger lands elsewhere in the viewport, not on the hotspot
+    // itself — this must promote the gesture to a pinch rather than running
+    // a hotspot move and a container pan/zoom at once.
+    fireEvent.pointerDown(container, {
+      pointerId: 2,
+      clientX: 300,
+      clientY: 150,
+    })
+    fireEvent.pointerMove(container, {
+      pointerId: 2,
+      clientX: 400,
+      clientY: 150,
+    })
+
+    const match = /scale\(([\d.]+)\)/.exec(readTransform())!
+    expect(Number(match[1])).toBeCloseTo(1, 5)
+    expect(store.getState().project.hotspots[0]).toMatchObject({
+      x: 0.5,
+      y: 0.5,
+    })
   })
 
   it('keeps single-pointer pan available outside draw mode', () => {

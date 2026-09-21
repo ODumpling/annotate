@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from 'zustand/react'
-import { ExportError, exportFileName, exportProject } from './export'
 import {
+  EXPORT_WARN_BYTES,
+  ExportError,
+  exportFileName,
+  exportProject,
+} from './export'
+import {
+  formatMiB,
   getBlob,
   ingestImage,
   ingestImageIntoProject,
@@ -30,6 +36,8 @@ function App() {
     string | null
   >(null)
   const [isExporting, setIsExporting] = useState(false)
+  const [exportWarning, setExportWarning] = useState<string | null>(null)
+  const [dragActive, setDragActive] = useState(false)
   const [mode, setMode] = useState<AppMode>('edit')
 
   const page = project.pages[0]
@@ -101,6 +109,7 @@ function App() {
     if (isExporting) return
     setExportError(null)
     setExportSuccessMessage(null)
+    setExportWarning(null)
     setIsExporting(true)
     try {
       const result = await exportProject(project, getBlob)
@@ -115,6 +124,11 @@ function App() {
       document.body.removeChild(anchor)
       URL.revokeObjectURL(url)
       setExportSuccessMessage(`Exported ${fileName}.`)
+      if (result.sizeWarning) {
+        setExportWarning(
+          `Exported file is ${formatMiB(result.byteLength)}, larger than the recommended ${formatMiB(EXPORT_WARN_BYTES)}.`,
+        )
+      }
     } catch (cause) {
       setExportError(
         cause instanceof ExportError
@@ -158,10 +172,31 @@ function App() {
       {mode === 'edit' && (
         <>
           <label
-            className="flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed border-slate-500 px-6 py-8 text-center text-sm text-slate-400"
+            className={`flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center text-sm ${
+              dragActive
+                ? 'border-sky-400 bg-sky-950/40 text-sky-300'
+                : 'border-slate-500 text-slate-400'
+            }`}
+            data-drag-active={dragActive ? 'true' : 'false'}
+            onDragEnter={(event) => {
+              event.preventDefault()
+              setDragActive(true)
+            }}
             onDragOver={(event) => event.preventDefault()}
+            onDragLeave={(event) => {
+              // dragleave also fires when the pointer moves between the
+              // label's own children; only deactivate on a real exit.
+              const next = event.relatedTarget
+              if (
+                !(next instanceof Node) ||
+                !event.currentTarget.contains(next)
+              ) {
+                setDragActive(false)
+              }
+            }}
             onDrop={(event) => {
               event.preventDefault()
+              setDragActive(false)
               void handleFiles(event.dataTransfer.files)
             }}
           >
@@ -228,6 +263,11 @@ function App() {
                 {exportSuccessMessage && (
                   <p role="status" className="text-sm text-emerald-400">
                     {exportSuccessMessage}
+                  </p>
+                )}
+                {exportWarning && (
+                  <p role="status" className="text-sm text-amber-400">
+                    {exportWarning}
                   </p>
                 )}
                 <ProjectSettingsPanel

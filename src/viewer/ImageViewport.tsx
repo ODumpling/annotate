@@ -1,10 +1,10 @@
 import {
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from 'react'
 import type { Hotspot } from '../model'
 import type { ProjectActions } from '../store'
@@ -184,6 +184,28 @@ export function ImageViewport({
     setDraftRectangle(null)
   }
 
+  function startPinch() {
+    const [a, b] = [...pointersRef.current.values()]
+    const rect = containerRect()
+    const mid = midpoint(a, b)
+    pinchRef.current = {
+      lastDistance: distance(a, b) || 1,
+      lastAnchor: { x: mid.x - rect.left, y: mid.y - rect.top },
+    }
+    panOriginRef.current = null
+    clearEditingGestures()
+  }
+
+  function panBounds() {
+    const rect = containerRect()
+    return {
+      containerWidth: rect.width,
+      containerHeight: rect.height,
+      imageWidth: naturalWidth,
+      imageHeight: naturalHeight,
+    }
+  }
+
   useLayoutEffect(() => {
     // The fit scale depends on a DOM measurement unavailable during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -214,24 +236,37 @@ export function ImageViewport({
     )
   }
 
-  function handleWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    event.preventDefault()
-    const rect = containerRect()
-    const anchor = { x: event.clientX - rect.left, y: event.clientY - rect.top }
-    const factor = clampNumber(
-      1 - event.deltaY * WHEEL_ZOOM_SENSITIVITY,
-      MIN_WHEEL_FACTOR,
-      MAX_WHEEL_FACTOR,
-    )
-    manualInteractionRef.current = true
-    applyTransform(
-      zoomAtPoint(
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    // React registers its delegated wheel listener as passive, so
+    // preventDefault from an onWheel prop is ignored in real browsers and
+    // the page scrolls while zooming. A native non-passive listener is
+    // required to actually cancel the default.
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault()
+      const rect = container.getBoundingClientRect()
+      const anchor = {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top,
+      }
+      const factor = clampNumber(
+        1 - event.deltaY * WHEEL_ZOOM_SENSITIVITY,
+        MIN_WHEEL_FACTOR,
+        MAX_WHEEL_FACTOR,
+      )
+      manualInteractionRef.current = true
+      const next = zoomAtPoint(
         transformRef.current,
         transformRef.current.scale * factor,
         anchor,
-      ),
-    )
-  }
+      )
+      transformRef.current = next
+      setTransform(next)
+    }
+    container.addEventListener('wheel', handleWheel, { passive: false })
+    return () => container.removeEventListener('wheel', handleWheel)
+  }, [])
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     containerRef.current?.setPointerCapture(event.pointerId)
@@ -242,15 +277,7 @@ export function ImageViewport({
     manualInteractionRef.current = true
 
     if (pointersRef.current.size === 2) {
-      const [a, b] = [...pointersRef.current.values()]
-      const rect = containerRect()
-      const mid = midpoint(a, b)
-      pinchRef.current = {
-        lastDistance: distance(a, b) || 1,
-        lastAnchor: { x: mid.x - rect.left, y: mid.y - rect.top },
-      }
-      panOriginRef.current = null
-      clearEditingGestures()
+      startPinch()
     } else if (pointersRef.current.size === 1 && mode === 'draw' && editing) {
       editing.actions.selectHotspot(null)
       drawGestureRef.current = {
@@ -284,6 +311,7 @@ export function ImageViewport({
         transformRef.current,
         anchor.x - pinch.lastAnchor.x,
         anchor.y - pinch.lastAnchor.y,
+        panBounds(),
       )
       const zoomed = zoomAtPoint(
         panned,
@@ -317,7 +345,7 @@ export function ImageViewport({
       const dx = event.clientX - panOriginRef.current.x
       const dy = event.clientY - panOriginRef.current.y
       panOriginRef.current = { x: event.clientX, y: event.clientY }
-      applyTransform(panBy(transformRef.current, dx, dy))
+      applyTransform(panBy(transformRef.current, dx, dy, panBounds()))
     }
   }
 
@@ -402,6 +430,18 @@ export function ImageViewport({
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture?.(event.pointerId)
+    // Register with the container gesture layer so its endPointer and
+    // cancelPointer cleanup track this pointer, and so a second finger
+    // landing anywhere in the viewport can promote the drag to a pinch
+    // (mirroring the draw-gesture cancellation in handlePointerDown).
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    })
+    if (pointersRef.current.size === 2) {
+      startPinch()
+      return
+    }
     editing?.actions.selectHotspot(hotspot.id)
     moveGestureRef.current = {
       pointerId: event.pointerId,
@@ -434,6 +474,14 @@ export function ImageViewport({
     event.preventDefault()
     event.stopPropagation()
     event.currentTarget.setPointerCapture?.(event.pointerId)
+    pointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    })
+    if (pointersRef.current.size === 2) {
+      startPinch()
+      return
+    }
     editing?.actions.selectHotspot(hotspot.id)
     resizeGestureRef.current = {
       pointerId: event.pointerId,
@@ -561,7 +609,6 @@ export function ImageViewport({
         className={`relative min-h-0 flex-1 touch-none overflow-hidden ${
           mode === 'draw' ? 'cursor-crosshair' : 'cursor-grab'
         }`}
-        onWheel={handleWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={endPointer}
@@ -624,8 +671,9 @@ export function ImageViewport({
                     onKeyDown={(event) => handleHotspotKeyDown(event, hotspot)}
                     onPointerDown={(event) => beginMove(event, hotspot)}
                     onPointerMove={moveSelected}
-                    onPointerUp={(event) => {
-                      event.stopPropagation()
+                    onPointerUp={() => {
+                      // Bubbles to the container so endPointer retires this
+                      // pointer from the shared gesture map.
                       moveGestureRef.current = null
                     }}
                     onPointerCancel={() => {
@@ -683,8 +731,9 @@ export function ImageViewport({
                     onKeyDown={(event) => handleHotspotKeyDown(event, hotspot)}
                     onPointerDown={(event) => beginMove(event, hotspot)}
                     onPointerMove={moveSelected}
-                    onPointerUp={(event) => {
-                      event.stopPropagation()
+                    onPointerUp={() => {
+                      // Bubbles to the container so endPointer retires this
+                      // pointer from the shared gesture map.
                       moveGestureRef.current = null
                     }}
                     onPointerCancel={() => {
@@ -699,8 +748,7 @@ export function ImageViewport({
                       style={{ transform: `scale(${1 / transform.scale})` }}
                       onPointerDown={(event) => beginResize(event, hotspot)}
                       onPointerMove={resizeSelected}
-                      onPointerUp={(event) => {
-                        event.stopPropagation()
+                      onPointerUp={() => {
                         resizeGestureRef.current = null
                       }}
                       onPointerCancel={() => {
