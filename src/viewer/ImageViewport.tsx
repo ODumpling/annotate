@@ -27,6 +27,11 @@ const MIN_WHEEL_FACTOR = 0.5
 const MAX_WHEEL_FACTOR = 2
 const BUTTON_ZOOM_FACTOR = 1.25
 const POINT_GESTURE_MAX_PX = 4
+// Touch taps drift farther than mouse clicks before lifting. Treat any
+// touch gesture below the rectangle minimum as a tap so the 4-12px band
+// between the mouse threshold and MIN_RECTANGLE_RENDERED_PX creates a
+// point instead of silently creating nothing.
+const TOUCH_POINT_GESTURE_MAX_PX = 12
 
 /** Both rendered dimensions must reach this size for a drag to create a rect. */
 export const MIN_RECTANGLE_RENDERED_PX = 12
@@ -70,6 +75,7 @@ export interface ImageViewportProps {
 
 interface DrawGesture {
   pointerId: number
+  pointerType: string
   startClient: ViewportPoint
   start: ViewportPoint
 }
@@ -249,6 +255,7 @@ export function ImageViewport({
       editing.actions.selectHotspot(null)
       drawGestureRef.current = {
         pointerId: event.pointerId,
+        pointerType: event.pointerType,
         startClient: { x: event.clientX, y: event.clientY },
         start: normalizedPoint(event.clientX, event.clientY),
       }
@@ -325,7 +332,12 @@ export function ImageViewport({
     })
     const hotspotId = crypto.randomUUID()
 
-    if (clientDistance <= POINT_GESTURE_MAX_PX) {
+    if (
+      clientDistance <=
+      (gesture.pointerType === 'touch'
+        ? TOUCH_POINT_GESTURE_MAX_PX
+        : POINT_GESTURE_MAX_PX)
+    ) {
       editing.actions.createHotspot({
         id: hotspotId,
         pageId: editing.pageId,

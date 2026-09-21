@@ -58,6 +58,24 @@ function App() {
     return () => URL.revokeObjectURL(url)
   }, [blob])
 
+  useEffect(() => {
+    // A file dropped outside the dropzone must never fall back to the
+    // browser default of navigating to the file, which would silently
+    // destroy all in-memory work. Cancelling dragover makes the window a
+    // valid drop target so the drop event can be cancelled here; drops
+    // that land on the dropzone label are unaffected because its own
+    // handlers run first and already cancel the default.
+    function cancelDragDefault(event: DragEvent) {
+      event.preventDefault()
+    }
+    window.addEventListener('dragover', cancelDragDefault)
+    window.addEventListener('drop', cancelDragDefault)
+    return () => {
+      window.removeEventListener('dragover', cancelDragDefault)
+      window.removeEventListener('drop', cancelDragDefault)
+    }
+  }, [])
+
   async function handleFiles(files: FileList | null) {
     const file = files?.[0]
     if (!file || isIngesting) return

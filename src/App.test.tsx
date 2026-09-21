@@ -160,6 +160,27 @@ describe('App image upload', () => {
       fileName: 'first.png',
     })
   })
+
+  it('cancels drops outside the dropzone so the browser never navigates away', () => {
+    render(<App />)
+
+    // A drop landing on the page body — outside the dropzone label — must
+    // be cancelled: without the guard, the browser default navigates to the
+    // dropped file and destroys all in-memory work. fireEvent returns false
+    // exactly when the dispatched event was cancelled.
+    expect(fireEvent.dragOver(document.body)).toBe(false)
+    expect(
+      fireEvent.drop(document.body, {
+        dataTransfer: { files: [validPngFile()] },
+      }),
+    ).toBe(false)
+
+    // The stray drop is swallowed, not ingested.
+    expect(
+      screen.queryByRole('img', { name: /uploaded document page/i }),
+    ).toBeNull()
+    expect(projectStore.getState().project.source).toBeNull()
+  })
 })
 
 describe('App inspector and export wiring', () => {

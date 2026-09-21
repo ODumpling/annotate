@@ -400,6 +400,72 @@ describe('ImageViewport hotspot editing', () => {
     expect(store.getState().project.hotspots).toEqual([])
   })
 
+  it('creates a point from a touch tap that drifts into the 4-12px band', () => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Draw hotspot' }))
+    const container = screen.getByTestId('viewport-container')
+
+    // A 10px touch drift is above the 4px mouse tap threshold but below
+    // the 12px rectangle minimum: previously a silent dead zone.
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 100,
+      clientY: 100,
+    })
+    fireEvent.pointerMove(container, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 108,
+      clientY: 106,
+    })
+    fireEvent.pointerUp(container, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 108,
+      clientY: 106,
+    })
+
+    const [hotspot] = store.getState().project.hotspots
+    expect(hotspot).toMatchObject({ shape: 'point' })
+    expect(hotspot.shape === 'point' && hotspot.x).toBeCloseTo(0.27)
+    expect(hotspot.shape === 'point' && hotspot.y).toBeCloseTo(0.353333, 5)
+    expect(store.getState().selectedHotspotId).toBe(hotspot.id)
+  })
+
+  it('still creates a rectangle for a touch drag above the touch threshold', () => {
+    const store = createEditorStore()
+    render(<EditorHarness store={store} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Draw hotspot' }))
+    const container = screen.getByTestId('viewport-container')
+
+    fireEvent.pointerDown(container, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 80,
+      clientY: 60,
+    })
+    fireEvent.pointerMove(container, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 280,
+      clientY: 210,
+    })
+    fireEvent.pointerUp(container, {
+      pointerId: 1,
+      pointerType: 'touch',
+      clientX: 280,
+      clientY: 210,
+    })
+
+    expect(store.getState().project.hotspots[0]).toMatchObject({
+      shape: 'rect',
+      x: 0.2,
+      y: 0.2,
+    })
+  })
+
   it('clamps a rectangle draw to page bounds after zooming', () => {
     const store = createEditorStore()
     render(<EditorHarness store={store} />)
