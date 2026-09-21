@@ -120,6 +120,9 @@ export function ImageViewport({
   const [transform, setTransform] =
     useState<ViewportTransform>(INITIAL_TRANSFORM)
   const [mode, setMode] = useState<ViewerMode>('pan')
+  const [imageStatus, setImageStatus] = useState<
+    'loading' | 'loaded' | 'error'
+  >('loading')
   const [draftRectangle, setDraftRectangle] =
     useState<NormalizedRectangle | null>(null)
   const manualInteractionRef = useRef(false)
@@ -211,6 +214,9 @@ export function ImageViewport({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fitToWidth()
     clearEditingGestures()
+    // A new image source needs to report its own load/error outcome even if
+    // the previous one already finished loading.
+    setImageStatus('loading')
     // Re-fit whenever the source image itself changes, including a replacement
     // with identical dimensions.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,13 +632,31 @@ export function ImageViewport({
             transform: `translate(${transform.translateX}px, ${transform.translateY}px) scale(${transform.scale})`,
           }}
         >
+          {imageStatus === 'loading' && (
+            <div
+              role="status"
+              className="absolute inset-0 flex items-center justify-center bg-slate-800/40 text-sm text-slate-300"
+            >
+              Loading image…
+            </div>
+          )}
+          {imageStatus === 'error' && (
+            <div
+              role="alert"
+              className="absolute inset-0 flex items-center justify-center bg-slate-800/40 text-sm text-red-300"
+            >
+              Could not load the image.
+            </div>
+          )}
           <img
             src={imageUrl}
             alt="Uploaded document page"
             width={naturalWidth}
             height={naturalHeight}
             draggable={false}
-            className="block"
+            className={`block ${imageStatus === 'loaded' ? '' : 'invisible'}`}
+            onLoad={() => setImageStatus('loaded')}
+            onError={() => setImageStatus('error')}
           />
           {editing &&
             orderedHotspots.map((hotspot) => {

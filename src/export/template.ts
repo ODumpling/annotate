@@ -115,7 +115,8 @@ body { margin: 0; background: ${palette.background}; color: ${palette.text}; fon
 .annotate-card-tags { margin: 10px 0 0; }
 .annotate-tag { display: inline-block; margin: 0 6px 6px 0; padding: 2px 10px; background: ${palette.tagBackground}; border-radius: 999px; font-size: 12px; }
 .annotate-card-close { position: absolute; right: 10px; top: 10px; border: 1px solid ${palette.cardBorder}; background: ${palette.background}; color: ${palette.text}; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
-.annotate-noscript { color: ${palette.text}; padding: 16px; }`
+.annotate-noscript { color: ${palette.text}; padding: 16px; }
+.annotate-error { color: ${palette.text}; padding: 16px; }`
 }
 
 const VIEWER_JS = `(function () {
@@ -129,6 +130,9 @@ const VIEWER_JS = `(function () {
     data = null
   }
   if (!data || data.schemaVersion !== 1 || !Array.isArray(data.pages) || !Array.isArray(data.hotspots)) {
+    document.body.appendChild(
+      element('p', 'annotate-error', 'Annotation data is missing or corrupted.')
+    )
     return
   }
 

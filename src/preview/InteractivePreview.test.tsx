@@ -102,6 +102,28 @@ describe('InteractivePreview rendering', () => {
     ).toBeNull()
   })
 
+  it('shows a loading status until the image loads, then an alert if it errors', () => {
+    render(<PreviewHarness store={createFixtureStore()} />)
+    const image = screen.getByRole('img', { name: 'Museum floor plan review' })
+    expect(screen.getByRole('status').textContent).toMatch(/loading image/i)
+
+    fireEvent.error(image)
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /could not load the image/i,
+    )
+  })
+
+  it('clears the loading status once the image loads', () => {
+    render(<PreviewHarness store={createFixtureStore()} />)
+    const image = screen.getByRole('img', { name: 'Museum floor plan review' })
+
+    fireEvent.load(image)
+
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('shows a bounded plain-text summary only with hover capability', () => {
     setHoverCapability(true)
     render(<PreviewHarness store={createFixtureStore()} />)
@@ -205,6 +227,18 @@ describe('InteractivePreview card contract', () => {
     fireEvent.click(screen.getByTestId('preview-backdrop'))
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.activeElement).toBe(entrance)
+  })
+
+  it('locks body scroll while open and restores it on close', () => {
+    render(<PreviewHarness store={createFixtureStore()} />)
+    expect(document.body.style.overflow).toBe('')
+
+    const entrance = marker('1. Main entrance')
+    fireEvent.click(entrance)
+    expect(document.body.style.overflow).toBe('hidden')
+
+    keydown('Escape')
+    expect(document.body.style.overflow).toBe('')
   })
 
   it('keeps preview card state independent from editor selection', () => {

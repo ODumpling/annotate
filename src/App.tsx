@@ -87,13 +87,17 @@ function App() {
   async function handleFiles(files: FileList | null) {
     const file = files?.[0]
     if (!file || isIngesting) return
+    const multiFileWarning =
+      files.length > 1
+        ? [`Only the first file was used; ${files.length} files were dropped.`]
+        : []
     setError(null)
-    setWarnings([])
+    setWarnings(multiFileWarning)
     setIsIngesting(true)
     try {
       const ingested = await ingestImage(file)
       ingestImageIntoProject(actions, project.source !== null, ingested)
-      setWarnings(ingested.warnings)
+      setWarnings([...multiFileWarning, ...ingested.warnings])
     } catch (cause) {
       setError(
         cause instanceof IngestError
@@ -172,17 +176,26 @@ function App() {
       {mode === 'edit' && (
         <>
           <label
-            className={`flex w-full max-w-md cursor-pointer flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center text-sm ${
+            className={`flex w-full max-w-md flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center text-sm ${
               dragActive
                 ? 'border-sky-400 bg-sky-950/40 text-sky-300'
                 : 'border-slate-500 text-slate-400'
+            } ${
+              isIngesting
+                ? 'pointer-events-none cursor-not-allowed opacity-60'
+                : 'cursor-pointer'
             }`}
             data-drag-active={dragActive ? 'true' : 'false'}
+            aria-busy={isIngesting}
             onDragEnter={(event) => {
+              if (isIngesting) return
               event.preventDefault()
               setDragActive(true)
             }}
-            onDragOver={(event) => event.preventDefault()}
+            onDragOver={(event) => {
+              if (isIngesting) return
+              event.preventDefault()
+            }}
             onDragLeave={(event) => {
               // dragleave also fires when the pointer moves between the
               // label's own children; only deactivate on a real exit.
@@ -196,6 +209,7 @@ function App() {
             }}
             onDrop={(event) => {
               event.preventDefault()
+              if (isIngesting) return
               setDragActive(false)
               void handleFiles(event.dataTransfer.files)
             }}
@@ -206,7 +220,13 @@ function App() {
               accept="image/png,image/jpeg,image/webp"
               className="sr-only"
               disabled={isIngesting}
-              onChange={(event) => void handleFiles(event.target.files)}
+              onChange={(event) => {
+                const input = event.currentTarget
+                void handleFiles(input.files).finally(() => {
+                  // Reset so re-selecting the same file path fires change again.
+                  input.value = ''
+                })
+              }}
             />
           </label>
           {isIngesting && (

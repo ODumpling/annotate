@@ -49,6 +49,39 @@ describe('export theme', () => {
   })
 })
 
+describe('export template corrupted data', () => {
+  function extractViewerScript(html: string): string {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    return Array.from(doc.querySelectorAll('script'))
+      .filter((script) => script.type !== 'application/json')
+      .map((script) => script.textContent)
+      .join('\n')
+  }
+
+  it('shows a fallback message instead of a blank page when the embedded data is invalid', () => {
+    const viewerScript = extractViewerScript(renderExportHtml(baseData()))
+    document.body.innerHTML =
+      '<script type="application/json" id="annotate-data">not valid json</script>'
+
+    new Function(viewerScript)()
+
+    expect(document.body.textContent).toContain(
+      'Annotation data is missing or corrupted.',
+    )
+  })
+
+  it('shows the same fallback message when the data element is missing entirely', () => {
+    const viewerScript = extractViewerScript(renderExportHtml(baseData()))
+    document.body.innerHTML = ''
+
+    new Function(viewerScript)()
+
+    expect(document.body.textContent).toContain(
+      'Annotation data is missing or corrupted.',
+    )
+  })
+})
+
 describe('export template content boundary', () => {
   it('does not type-check arbitrary strings as sanitized description HTML', () => {
     const unsafeData: ExportedViewerData = {

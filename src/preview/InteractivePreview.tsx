@@ -82,6 +82,16 @@ export function InteractivePreview({
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const [openHotspotId, setOpenHotspotId] = useState<string | null>(null)
   const [hoveredHotspotId, setHoveredHotspotId] = useState<string | null>(null)
+  const [imageStatus, setImageStatus] = useState<
+    'loading' | 'loaded' | 'error'
+  >('loading')
+
+  useEffect(() => {
+    // A new image source needs to report its own load/error outcome even if
+    // the previous one already finished loading.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setImageStatus('loading')
+  }, [imageUrl])
 
   const preparedHotspots = useMemo<PreparedHotspot[]>(
     () =>
@@ -156,6 +166,17 @@ export function InteractivePreview({
     return () => document.removeEventListener('keydown', handleKeydown)
   }, [closeCard, openHotspot])
 
+  useEffect(() => {
+    // Without this, touch scroll on the fixed backdrop chains through to the
+    // page behind it (most noticeably on iOS Safari).
+    if (!openHotspotId) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [openHotspotId])
+
   function openCard(prepared: PreparedHotspot, trigger: HTMLButtonElement) {
     triggerRef.current = trigger
     setHoveredHotspotId(null)
@@ -182,11 +203,31 @@ export function InteractivePreview({
       >
         <img
           alt={imageAlt}
-          className="block h-auto w-full rounded-md"
+          className={`block h-auto w-full rounded-md ${
+            imageStatus === 'loaded' ? '' : 'invisible'
+          }`}
           height={pageHeight}
+          onError={() => setImageStatus('error')}
+          onLoad={() => setImageStatus('loaded')}
           src={imageUrl}
           width={pageWidth}
         />
+        {imageStatus === 'loading' && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-slate-950/40 text-sm text-slate-100"
+            role="status"
+          >
+            Loading image…
+          </div>
+        )}
+        {imageStatus === 'error' && (
+          <div
+            className="absolute inset-0 flex items-center justify-center bg-slate-950/40 text-sm text-red-200"
+            role="alert"
+          >
+            Could not load the image.
+          </div>
+        )}
         <div className="absolute inset-0" data-testid="preview-overlay">
           {preparedHotspots.map((prepared) => {
             const { hotspot, number, label } = prepared

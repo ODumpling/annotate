@@ -170,6 +170,65 @@ describe('App image upload', () => {
     })
   })
 
+  it('resets the file input so re-selecting the same file fires a change', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => ({ width: 800, height: 600, close: vi.fn() })),
+    )
+    render(<App />)
+    const input = getFileInput()
+
+    fireEvent.change(input, { target: { files: [validPngFile()] } })
+    await screen.findByRole('img', { name: /uploaded document page/i })
+
+    expect(input.value).toBe('')
+  })
+
+  it('warns and uses only the first file when several are dropped', async () => {
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => ({ width: 800, height: 600, close: vi.fn() })),
+    )
+    render(<App />)
+
+    fireEvent.drop(screen.getByText(/drag and drop/i), {
+      dataTransfer: {
+        files: [validPngFile('first.png'), validPngFile('second.png')],
+      },
+    })
+
+    const warning = await screen.findByText(/only the first file was used/i)
+    expect(warning.closest('[role="status"]')).not.toBeNull()
+    await screen.findByRole('img', { name: /uploaded document page/i })
+    expect(projectStore.getState().project.source).toMatchObject({
+      fileName: 'first.png',
+    })
+  })
+
+  it('marks the dropzone busy and inert while a file is being ingested', async () => {
+    let releaseDecode!: () => void
+    const decode = new Promise<void>((resolve) => {
+      releaseDecode = resolve
+    })
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => {
+        await decode
+        return { width: 800, height: 600, close: vi.fn() }
+      }),
+    )
+    render(<App />)
+    const dropzone = screen.getByText(/drag and drop/i).closest('label')!
+
+    fireEvent.drop(dropzone, { dataTransfer: { files: [validPngFile()] } })
+    await screen.findByText(/reading image/i)
+    expect(dropzone.getAttribute('aria-busy')).toBe('true')
+
+    releaseDecode()
+    await screen.findByRole('img', { name: /uploaded document page/i })
+    expect(dropzone.getAttribute('aria-busy')).toBe('false')
+  })
+
   it('cancels drops outside the dropzone so the browser never navigates away', () => {
     render(<App />)
 

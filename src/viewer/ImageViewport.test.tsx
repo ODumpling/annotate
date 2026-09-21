@@ -105,6 +105,40 @@ describe('ImageViewport', () => {
     expect(image.getAttribute('height')).toBe('600')
   })
 
+  it('shows a loading status until the image loads, then an alert if it errors', () => {
+    render(
+      <ImageViewport
+        imageUrl="blob:image"
+        naturalWidth={800}
+        naturalHeight={600}
+      />,
+    )
+    const image = screen.getByRole('img', { name: /uploaded document page/i })
+    expect(screen.getByRole('status').textContent).toMatch(/loading image/i)
+
+    fireEvent.error(image)
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /could not load the image/i,
+    )
+  })
+
+  it('clears the loading status once the image loads', () => {
+    render(
+      <ImageViewport
+        imageUrl="blob:image"
+        naturalWidth={800}
+        naturalHeight={600}
+      />,
+    )
+    const image = screen.getByRole('img', { name: /uploaded document page/i })
+
+    fireEvent.load(image)
+
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(screen.queryByRole('alert')).toBeNull()
+  })
+
   it('fits to the container width on mount', () => {
     render(
       <ImageViewport
