@@ -2,28 +2,23 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
-  type KeyboardEvent as ReactKeyboardEvent,
+  type FocusEvent as ReactFocusEvent,
 } from 'react'
-import { createPortal } from 'react-dom'
-import { XIcon } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import type { Hotspot } from '../model'
 import { renderDescriptionHtml, type SanitizedHtml } from '../export/markdown'
-import {
-  compactDescriptionFromHtml,
-  TITLE_SUMMARY_GRAPHEMES,
-  truncateGraphemes,
-} from './summary'
 
 const DEFAULT_MARKER_COLOR = '#2563eb'
 const HEX_COLOR = /^#[0-9a-f]{6}$/i
 const HOVER_POINTER_QUERY = '(hover: hover) and (pointer: fine)'
-const FOCUSABLE_SELECTOR = 'button:not([disabled]), a[href]'
+const TOOLTIP_GAP = 8
+const EDGE_MARGIN = 8
+const HIDE_DELAY_MS = 150
 
 export interface InteractivePreviewProps {
   imageUrl: string
@@ -35,12 +30,17 @@ export interface InteractivePreviewProps {
   showBadgeNumbers?: boolean
 }
 
+// Hover or focus shows an unpinned tooltip; a click pins it open until the
+// marker is clicked again, Escape is pressed, or the user clicks elsewhere.
+interface ActiveTooltip {
+  hotspotId: string
+  pinned: boolean
+}
+
 interface PreparedHotspot {
   hotspot: Hotspot
   number: number
   label: string
-  compactTitle: string
-  compactDescription: string
   descriptionHtml: SanitizedHtml
 }
 
@@ -80,11 +80,15 @@ export function InteractivePreview({
   hotspots,
   showBadgeNumbers = true,
 }: InteractivePreviewProps) {
-  const titleId = useId()
-  const closeButtonRef = useRef<HTMLButtonElement | null>(null)
-  const triggerRef = useRef<HTMLButtonElement | null>(null)
-  const [openHotspotId, setOpenHotspotId] = useState<string | null>(null)
-  const [hoveredHotspotId, setHoveredHotspotId] = useState<string | null>(null)
+  const tooltipIdPrefix = useId()
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
+  const markerRefs = useRef(new Map<string, HTMLButtonElement>())
+  const hideTimerRef = useRef<number | null>(null)
+  const [active, setActive] = useState<ActiveTooltip | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{
+    left: number
+    top: number
+  } | null>(null)
   const [imageStatus, setImageStatus] = useState<
     'loading' | 'loaded' | 'error'
   >('loading')
@@ -101,101 +105,157 @@ export function InteractivePreview({
       hotspots
         .filter((hotspot) => hotspot.pageId === pageId)
         .toSorted((left, right) => left.order - right.order)
-        .map((hotspot, index) => {
-          const label = displayTitle(hotspot)
-          const descriptionHtml = renderDescriptionHtml(hotspot.description)
-          return {
-            hotspot,
-            number: index + 1,
-            label,
-            compactTitle: truncateGraphemes(label, TITLE_SUMMARY_GRAPHEMES),
-            compactDescription: compactDescriptionFromHtml(descriptionHtml),
-            descriptionHtml,
-          }
-        }),
+        .map((hotspot, index) => ({
+          hotspot,
+          number: index + 1,
+          label: displayTitle(hotspot),
+          descriptionHtml: renderDescriptionHtml(hotspot.description),
+        })),
     [hotspots, pageId],
   )
 
-  const openHotspot = preparedHotspots.find(
-    ({ hotspot }) => hotspot.id === openHotspotId,
+  const activeHotspot = preparedHotspots.find(
+    ({ hotspot }) => hotspot.id === active?.hotspotId,
   )
 
-  const closeCard = useCallback(() => {
-    setOpenHotspotId(null)
-    triggerRef.current?.focus()
+  const cancelHide = useCallback(() => {
+    if (hideTimerRef.current !== null) {
+      window.clearTimeout(hideTimerRef.current)
+      hideTimerRef.current = null
+    }
   }, [])
 
-  useEffect(() => {
-    if (!openHotspot) {
+  const scheduleHide = useCallback(() => {
+    cancelHide()
+    hideTimerRef.current = window.setTimeout(() => {
+      hideTimerRef.current = null
+      setActive((current) => (current?.pinned ? current : null))
+    }, HIDE_DELAY_MS)
+  }, [cancelHide])
+
+  useEffect(() => cancelHide, [cancelHide])
+
+  function show(hotspotId: string, pinned: boolean) {
+    cancelHide()
+    setActive((current) => {
+      if (current?.hotspotId === hotspotId) {
+        return pinned && !current.pinned ? { hotspotId, pinned } : current
+      }
+      return { hotspotId, pinned }
+    })
+  }
+
+  function showUnpinned(hotspotId: string) {
+    if (active?.pinned) {
       return
     }
-    closeButtonRef.current?.focus()
+    show(hotspotId, false)
+  }
 
+  function hide(restoreFocus: boolean) {
+    cancelHide()
+    if (restoreFocus && active) {
+      markerRefs.current.get(active.hotspotId)?.focus()
+    }
+    setActive(null)
+  }
+
+  function handleFocusOut(event: ReactFocusEvent, hotspotId: string) {
+    if (!active || active.hotspotId !== hotspotId || active.pinned) {
+      return
+    }
+    const next = event.relatedTarget
+    if (
+      next instanceof Node &&
+      (markerRefs.current.get(hotspotId)?.contains(next) ||
+        tooltipRef.current?.contains(next))
+    ) {
+      return
+    }
+    setActive(null)
+  }
+
+  const positionTooltip = useCallback(() => {
+    const tooltip = tooltipRef.current
+    const marker = active ? markerRefs.current.get(active.hotspotId) : null
+    const origin = marker?.parentElement
+    if (!tooltip || !marker || !origin) {
+      setTooltipPosition(null)
+      return
+    }
+    const anchor = marker.getBoundingClientRect()
+    const originRect = origin.getBoundingClientRect()
+    const width = tooltip.offsetWidth
+    const height = tooltip.offsetHeight
+    const viewWidth = document.documentElement.clientWidth || window.innerWidth
+    const viewHeight =
+      document.documentElement.clientHeight || window.innerHeight
+    const left = Math.max(
+      EDGE_MARGIN,
+      Math.min(
+        anchor.left + anchor.width / 2 - width / 2,
+        viewWidth - width - EDGE_MARGIN,
+      ),
+    )
+    let top = anchor.bottom + TOOLTIP_GAP
+    if (top + height > viewHeight - EDGE_MARGIN) {
+      const above = anchor.top - TOOLTIP_GAP - height
+      top =
+        above >= EDGE_MARGIN
+          ? above
+          : Math.max(EDGE_MARGIN, viewHeight - height - EDGE_MARGIN)
+    }
+    // Stored relative to the marker's wrapper so it scrolls with the image.
+    setTooltipPosition({
+      left: Math.round(left - originRect.left),
+      top: Math.round(top - originRect.top),
+    })
+  }, [active])
+
+  useLayoutEffect(() => {
+    positionTooltip()
+  }, [positionTooltip])
+
+  useEffect(() => {
+    if (!active) {
+      return
+    }
     function handleKeydown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        closeCard()
+      if (event.key !== 'Escape') {
         return
       }
-      if (event.key !== 'Tab') {
-        return
+      event.preventDefault()
+      const focusInside =
+        document.activeElement instanceof Node &&
+        (document.activeElement === markerRefs.current.get(active!.hotspotId) ||
+          (tooltipRef.current?.contains(document.activeElement) ?? false))
+      cancelHide()
+      if (focusInside) {
+        markerRefs.current.get(active!.hotspotId)?.focus()
       }
-      const dialog = closeButtonRef.current?.closest('[role="dialog"]')
-      if (!(dialog instanceof HTMLElement)) {
-        return
-      }
-      const focusable = Array.from(
-        dialog.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
-      ).filter((element) => !element.hasAttribute('disabled'))
-      if (focusable.length === 0) {
-        event.preventDefault()
-        return
-      }
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      const active = document.activeElement
-      if (event.shiftKey) {
-        if (active === first || !dialog.contains(active)) {
-          event.preventDefault()
-          last.focus()
-        }
-      } else if (active === last || !dialog.contains(active)) {
-        event.preventDefault()
-        first.focus()
-      }
+      setActive(null)
     }
-
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target
+      if (
+        target instanceof Node &&
+        (markerRefs.current.get(active!.hotspotId)?.contains(target) ||
+          tooltipRef.current?.contains(target))
+      ) {
+        return
+      }
+      cancelHide()
+      setActive(null)
+    }
     document.addEventListener('keydown', handleKeydown)
-    return () => document.removeEventListener('keydown', handleKeydown)
-  }, [closeCard, openHotspot])
-
-  useEffect(() => {
-    // Without this, touch scroll on the fixed backdrop chains through to the
-    // page behind it (most noticeably on iOS Safari).
-    if (!openHotspotId) return
-    const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    document.addEventListener('pointerdown', handlePointerDown)
+    window.addEventListener('resize', positionTooltip)
     return () => {
-      document.body.style.overflow = previousOverflow
+      document.removeEventListener('keydown', handleKeydown)
+      document.removeEventListener('pointerdown', handlePointerDown)
+      window.removeEventListener('resize', positionTooltip)
     }
-  }, [openHotspotId])
-
-  function openCard(prepared: PreparedHotspot, trigger: HTMLButtonElement) {
-    triggerRef.current = trigger
-    setHoveredHotspotId(null)
-    setOpenHotspotId(prepared.hotspot.id)
-  }
-
-  function activateWithKeyboard(
-    event: ReactKeyboardEvent<HTMLButtonElement>,
-    prepared: PreparedHotspot,
-  ) {
-    if (event.key !== 'Enter' && event.key !== ' ') {
-      return
-    }
-    event.preventDefault()
-    openCard(prepared, event.currentTarget)
-  }
+  }, [active, cancelHide, positionTooltip])
 
   return (
     <section aria-label="Interactive preview" className="w-full">
@@ -232,23 +292,23 @@ export function InteractivePreview({
           </div>
         )}
         <div className="absolute inset-0" data-testid="preview-overlay">
-          {preparedHotspots.map((prepared) => {
-            const { hotspot, number, label } = prepared
+          {preparedHotspots.map(({ hotspot, number, label }) => {
             const isRectangle = hotspot.shape === 'rect'
-            const tooltipId = `preview-summary-${hotspot.id}`
-            const summaryVisible = hoveredHotspotId === hotspot.id
+            const isActive = active?.hotspotId === hotspot.id
             return (
               <div
                 className={`group absolute ${
                   isRectangle ? '' : 'h-7 w-7 -translate-x-1/2 -translate-y-1/2'
-                }`}
+                } ${isActive ? 'z-20' : ''}`}
                 data-hotspot-shape={hotspot.shape}
                 key={hotspot.id}
                 style={markerPosition(hotspot)}
               >
                 <button
-                  aria-describedby={summaryVisible ? tooltipId : undefined}
-                  aria-expanded={openHotspotId === hotspot.id}
+                  aria-controls={
+                    isActive ? `${tooltipIdPrefix}-tooltip` : undefined
+                  }
+                  aria-expanded={isActive}
                   aria-haspopup="dialog"
                   aria-label={`${showBadgeNumbers ? `${number}. ` : ''}${label}`}
                   className={`h-full w-full cursor-pointer text-white shadow-[0_0_0_2px_rgba(2,6,23,0.55)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber-400 ${
@@ -256,14 +316,32 @@ export function InteractivePreview({
                       ? 'rounded border-2 bg-slate-950/10'
                       : 'flex items-center justify-center rounded-full border-2 border-white text-xs font-semibold'
                   }`}
-                  onClick={(event) => openCard(prepared, event.currentTarget)}
-                  onKeyDown={(event) => activateWithKeyboard(event, prepared)}
-                  onPointerEnter={() => {
-                    if (supportsHoverPointer()) {
-                      setHoveredHotspotId(hotspot.id)
+                  onBlur={(event) => handleFocusOut(event, hotspot.id)}
+                  onClick={() => {
+                    if (isActive && active.pinned) {
+                      hide(false)
+                    } else {
+                      show(hotspot.id, true)
                     }
                   }}
-                  onPointerLeave={() => setHoveredHotspotId(null)}
+                  onFocus={() => showUnpinned(hotspot.id)}
+                  onPointerEnter={() => {
+                    if (supportsHoverPointer()) {
+                      showUnpinned(hotspot.id)
+                    }
+                  }}
+                  onPointerLeave={() => {
+                    if (isActive && !active.pinned) {
+                      scheduleHide()
+                    }
+                  }}
+                  ref={(element) => {
+                    if (element) {
+                      markerRefs.current.set(hotspot.id, element)
+                    } else {
+                      markerRefs.current.delete(hotspot.id)
+                    }
+                  }}
                   style={
                     isRectangle
                       ? { borderColor: markerColor(hotspot.color) }
@@ -288,19 +366,52 @@ export function InteractivePreview({
                     </span>
                   ) : null}
                 </button>
-                {summaryVisible ? (
+                {isActive && activeHotspot ? (
+                  // Rendered next to its marker so it scrolls with the image and Tab
+                  // moves from the marker into any description links.
                   <div
-                    className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-lg border bg-popover p-3 text-left text-sm text-popover-foreground shadow-lg"
-                    id={tooltipId}
-                    role="tooltip"
+                    aria-labelledby={`${tooltipIdPrefix}-title`}
+                    className="absolute top-0 left-0 z-20 max-h-[min(60vh,420px)] w-max max-w-[min(22.5rem,calc(100vw-1rem))] overflow-auto rounded-lg border bg-popover p-3 text-left text-sm text-popover-foreground shadow-lg"
+                    id={`${tooltipIdPrefix}-tooltip`}
+                    onBlur={(event) =>
+                      handleFocusOut(event, activeHotspot.hotspot.id)
+                    }
+                    onPointerEnter={cancelHide}
+                    onPointerLeave={() => {
+                      if (!active?.pinned) {
+                        scheduleHide()
+                      }
+                    }}
+                    ref={tooltipRef}
+                    role="dialog"
+                    style={
+                      tooltipPosition
+                        ? {
+                            transform: `translate(${tooltipPosition.left}px, ${tooltipPosition.top}px)`,
+                          }
+                        : { visibility: 'hidden' }
+                    }
                   >
-                    <p className="truncate whitespace-nowrap font-semibold">
-                      {prepared.compactTitle}
-                    </p>
-                    {prepared.compactDescription ? (
-                      <p className="mt-1 line-clamp-3 text-muted-foreground">
-                        {prepared.compactDescription}
-                      </p>
+                    <h2
+                      className="mb-1.5 font-semibold"
+                      id={`${tooltipIdPrefix}-title`}
+                    >
+                      {activeHotspot.label}
+                    </h2>
+                    <div
+                      className="preview-description"
+                      dangerouslySetInnerHTML={{
+                        __html: activeHotspot.descriptionHtml,
+                      }}
+                    />
+                    {activeHotspot.hotspot.tags.length > 0 ? (
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {activeHotspot.hotspot.tags.map((tag) => (
+                          <Badge key={tag} variant="secondary">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
@@ -309,61 +420,6 @@ export function InteractivePreview({
           })}
         </div>
       </div>
-
-      {openHotspot
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/50 p-4 backdrop-blur-xs duration-150 fade-in-0"
-              data-testid="preview-backdrop"
-              onClick={(event) => {
-                if (event.target === event.currentTarget) {
-                  closeCard()
-                }
-              }}
-            >
-              <div
-                aria-labelledby={titleId}
-                aria-modal="true"
-                className="relative max-h-[80vh] w-full max-w-lg animate-in overflow-auto rounded-xl border bg-card p-6 text-card-foreground shadow-2xl duration-150 fade-in-0 zoom-in-95"
-                role="dialog"
-              >
-                <h2
-                  className="mb-3 pr-10 text-lg font-semibold tracking-tight"
-                  id={titleId}
-                >
-                  {openHotspot.label}
-                </h2>
-                <div
-                  className="preview-description"
-                  dangerouslySetInnerHTML={{
-                    __html: openHotspot.descriptionHtml,
-                  }}
-                />
-                {openHotspot.hotspot.tags.length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-1.5">
-                    {openHotspot.hotspot.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary">
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : null}
-                <Button
-                  aria-label="Close"
-                  className="absolute top-3 right-3"
-                  onClick={closeCard}
-                  ref={closeButtonRef}
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <XIcon aria-hidden="true" />
-                </Button>
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
     </section>
   )
 }
