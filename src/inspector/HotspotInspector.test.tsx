@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { useStore } from 'zustand/react'
 import { createProjectStore, type ProjectStore } from '../store'
@@ -64,7 +64,40 @@ function pageOne(store: ProjectStore) {
     .toSorted((left, right) => left.order - right.order)
 }
 
+function expandRow(name: string) {
+  const button = screen.getByRole('button', { name })
+  fireEvent.click(button)
+  return button.closest('li')!
+}
+
 describe('HotspotInspector', () => {
+  it('only expands the fields of the selected hotspot', () => {
+    const store = createInspectorStore()
+    render(<InspectorHarness store={store} />)
+    expect(screen.queryByLabelText('Title')).toBeNull()
+
+    const one = screen.getByRole('button', { name: 'One' })
+    expect(one.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(one)
+    expect(one.getAttribute('aria-expanded')).toBe('true')
+    expect(screen.getAllByLabelText('Title')).toHaveLength(1)
+    expect(within(one.closest('li')!).getByLabelText('Title')).toBeInstanceOf(
+      HTMLInputElement,
+    )
+
+    fireEvent.focus(screen.getByRole('button', { name: 'Move Two up' }))
+    expect(store.getState().selectedHotspotId).toBe('two')
+    expect(one.getAttribute('aria-expanded')).toBe('false')
+    expect(
+      within(
+        screen.getByRole('button', { name: 'Two' }).closest('li')!,
+      ).getByLabelText('Title'),
+    ).toBeInstanceOf(HTMLInputElement)
+
+    act(() => store.getState().actions.selectHotspot(null))
+    expect(screen.queryByLabelText('Title')).toBeNull()
+  })
+
   it('lists only the active page and keeps viewport-driven selection visible', () => {
     const store = createInspectorStore()
     store.getState().actions.selectHotspot('two')
@@ -116,7 +149,7 @@ describe('HotspotInspector', () => {
   it('writes fields and normalized tags through the real store', () => {
     const store = createInspectorStore()
     render(<InspectorHarness store={store} />)
-    const row = screen.getByRole('button', { name: 'One' }).closest('li')!
+    const row = expandRow('One')
 
     fireEvent.change(within(row).getByLabelText('Title'), {
       target: { value: 'Updated title' },
@@ -139,7 +172,7 @@ describe('HotspotInspector', () => {
   it('accepts and canonicalizes only six-digit hex colors', () => {
     const store = createInspectorStore()
     render(<InspectorHarness store={store} />)
-    const row = screen.getByRole('button', { name: 'One' }).closest('li')!
+    const row = expandRow('One')
     const color = within(row).getByLabelText('Color')
 
     fireEvent.change(color, { target: { value: '#a1b2c3' } })
@@ -158,7 +191,7 @@ describe('HotspotInspector', () => {
   it('allows an empty title and normalizes whitespace-only descriptions', () => {
     const store = createInspectorStore()
     render(<InspectorHarness store={store} />)
-    const row = screen.getByRole('button', { name: 'One' }).closest('li')!
+    const row = expandRow('One')
 
     fireEvent.change(within(row).getByLabelText('Title'), {
       target: { value: '' },
@@ -176,7 +209,7 @@ describe('HotspotInspector', () => {
   it('rejects title and description values over their grapheme limits', () => {
     const store = createInspectorStore()
     render(<InspectorHarness store={store} />)
-    const row = screen.getByRole('button', { name: 'One' }).closest('li')!
+    const row = expandRow('One')
 
     fireEvent.change(within(row).getByLabelText('Title'), {
       target: { value: 'a'.repeat(TITLE_MAX_GRAPHEMES + 1) },
@@ -192,7 +225,7 @@ describe('HotspotInspector', () => {
   it('counts user-perceived graphemes rather than UTF-16 code units', () => {
     const store = createInspectorStore()
     render(<InspectorHarness store={store} />)
-    const row = screen.getByRole('button', { name: 'One' }).closest('li')!
+    const row = expandRow('One')
     const family = '👨‍👩‍👧‍👦'
 
     fireEvent.change(within(row).getByLabelText('Title'), {

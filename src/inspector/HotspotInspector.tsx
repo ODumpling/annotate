@@ -132,7 +132,12 @@ function HotspotRow({
           : 'hover:border-foreground/20',
       )}
       data-selected={selected ? 'true' : 'false'}
-      onClick={() => actions.selectHotspot(hotspot.id)}
+      onClick={() => {
+        if (!selected) actions.selectHotspot(hotspot.id)
+      }}
+      onFocus={() => {
+        if (!selected) actions.selectHotspot(hotspot.id)
+      }}
     >
       <div className="flex items-center gap-1">
         <span
@@ -143,7 +148,8 @@ function HotspotRow({
           {position + 1}
         </span>
         <button
-          aria-pressed={selected}
+          aria-controls={selected ? `${fieldId}-fields` : undefined}
+          aria-expanded={selected}
           className="min-h-7 min-w-0 flex-1 truncate rounded-md px-1.5 text-left text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           onClick={() => actions.selectHotspot(hotspot.id)}
           type="button"
@@ -185,97 +191,101 @@ function HotspotRow({
         </Button>
       </div>
 
-      <div className="mt-3 grid gap-3 border-t pt-3">
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${fieldId}-title`}>Title</Label>
-          <Input
-            aria-describedby={titleError ? `${fieldId}-title-error` : undefined}
-            aria-invalid={titleError ? 'true' : undefined}
-            id={`${fieldId}-title`}
-            onChange={updateTitle}
-            type="text"
-            value={hotspot.title}
-          />
-          {titleError ? (
-            <p
-              className="text-xs text-destructive"
-              id={`${fieldId}-title-error`}
-              role="alert"
-            >
-              {titleError}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${fieldId}-description`}>Description</Label>
-          <Textarea
-            aria-describedby={
-              descriptionError ? `${fieldId}-description-error` : undefined
-            }
-            aria-invalid={descriptionError ? 'true' : undefined}
-            className="min-h-24"
-            id={`${fieldId}-description`}
-            onChange={updateDescription}
-            placeholder="Markdown supported"
-            value={hotspot.description}
-          />
-          {descriptionError ? (
-            <p
-              className="text-xs text-destructive"
-              id={`${fieldId}-description-error`}
-              role="alert"
-            >
-              {descriptionError}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${fieldId}-color`}>Color</Label>
-          <div className="relative">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 rounded-sm ring-1 ring-foreground/15"
-              style={{ backgroundColor: swatch }}
-            />
+      {selected ? (
+        <div className="mt-3 grid gap-3 border-t pt-3" id={`${fieldId}-fields`}>
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-title`}>Title</Label>
             <Input
               aria-describedby={
-                colorError ? `${fieldId}-color-error` : undefined
+                titleError ? `${fieldId}-title-error` : undefined
               }
-              aria-invalid={colorError ? 'true' : undefined}
-              className="pl-8 font-mono uppercase placeholder:normal-case"
-              defaultValue={hotspot.color ?? ''}
-              id={`${fieldId}-color`}
-              key={hotspot.color ?? 'empty'}
-              onBlur={commitColor}
-              placeholder="#2563EB"
+              aria-invalid={titleError ? 'true' : undefined}
+              id={`${fieldId}-title`}
+              onChange={updateTitle}
+              type="text"
+              value={hotspot.title}
+            />
+            {titleError ? (
+              <p
+                className="text-xs text-destructive"
+                id={`${fieldId}-title-error`}
+                role="alert"
+              >
+                {titleError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-description`}>Description</Label>
+            <Textarea
+              aria-describedby={
+                descriptionError ? `${fieldId}-description-error` : undefined
+              }
+              aria-invalid={descriptionError ? 'true' : undefined}
+              className="min-h-24"
+              id={`${fieldId}-description`}
+              onChange={updateDescription}
+              placeholder="Markdown supported"
+              value={hotspot.description}
+            />
+            {descriptionError ? (
+              <p
+                className="text-xs text-destructive"
+                id={`${fieldId}-description-error`}
+                role="alert"
+              >
+                {descriptionError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-color`}>Color</Label>
+            <div className="relative">
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 rounded-sm ring-1 ring-foreground/15"
+                style={{ backgroundColor: swatch }}
+              />
+              <Input
+                aria-describedby={
+                  colorError ? `${fieldId}-color-error` : undefined
+                }
+                aria-invalid={colorError ? 'true' : undefined}
+                className="pl-8 font-mono uppercase placeholder:normal-case"
+                defaultValue={hotspot.color ?? ''}
+                id={`${fieldId}-color`}
+                key={hotspot.color ?? 'empty'}
+                onBlur={commitColor}
+                placeholder="#2563EB"
+                type="text"
+              />
+            </div>
+            {colorError ? (
+              <p
+                className="text-xs text-destructive"
+                id={`${fieldId}-color-error`}
+                role="alert"
+              >
+                {colorError}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="grid gap-1.5">
+            <Label htmlFor={`${fieldId}-tags`}>Tags</Label>
+            <Input
+              defaultValue={hotspot.tags.join(', ')}
+              id={`${fieldId}-tags`}
+              key={hotspot.tags.join('\u0000')}
+              onBlur={commitTags}
+              placeholder="review, navigation"
               type="text"
             />
           </div>
-          {colorError ? (
-            <p
-              className="text-xs text-destructive"
-              id={`${fieldId}-color-error`}
-              role="alert"
-            >
-              {colorError}
-            </p>
-          ) : null}
         </div>
-
-        <div className="grid gap-1.5">
-          <Label htmlFor={`${fieldId}-tags`}>Tags</Label>
-          <Input
-            defaultValue={hotspot.tags.join(', ')}
-            id={`${fieldId}-tags`}
-            key={hotspot.tags.join('\u0000')}
-            onBlur={commitTags}
-            placeholder="review, navigation"
-            type="text"
-          />
-        </div>
-      </div>
+      ) : null}
     </li>
   )
 }
