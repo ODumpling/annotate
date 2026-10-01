@@ -9,7 +9,12 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { exportFileName } from './export'
-import { clearBlobs, BYTES_PER_MIB, IMAGE_PIXEL_LIMITS, putBlob } from './ingest'
+import {
+  clearBlobs,
+  BYTES_PER_MIB,
+  IMAGE_PIXEL_LIMITS,
+  putBlob,
+} from './ingest'
 import { projectStore } from './store'
 
 function u32be(value: number): number[] {
