@@ -9,6 +9,9 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { XIcon } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import type { Hotspot } from '../model'
 import { renderDescriptionHtml, type SanitizedHtml } from '../export/markdown'
 import {
@@ -203,7 +206,7 @@ export function InteractivePreview({
       >
         <img
           alt={imageAlt}
-          className={`block h-auto w-full rounded-md ${
+          className={`block h-auto w-full rounded-lg ${
             imageStatus === 'loaded' ? '' : 'invisible'
           }`}
           height={pageHeight}
@@ -214,7 +217,7 @@ export function InteractivePreview({
         />
         {imageStatus === 'loading' && (
           <div
-            className="absolute inset-0 flex items-center justify-center bg-slate-950/40 text-sm text-slate-100"
+            className="absolute inset-0 flex items-center justify-center rounded-lg bg-muted/60 text-sm text-muted-foreground"
             role="status"
           >
             Loading image…
@@ -222,7 +225,7 @@ export function InteractivePreview({
         )}
         {imageStatus === 'error' && (
           <div
-            className="absolute inset-0 flex items-center justify-center bg-slate-950/40 text-sm text-red-200"
+            className="absolute inset-0 flex items-center justify-center rounded-lg bg-muted/60 text-sm text-destructive"
             role="alert"
           >
             Could not load the image.
@@ -287,7 +290,7 @@ export function InteractivePreview({
                 </button>
                 {summaryVisible ? (
                   <div
-                    className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-lg bg-slate-900 p-3 text-left text-sm text-slate-100 shadow-xl"
+                    className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 w-64 -translate-x-1/2 rounded-lg border bg-popover p-3 text-left text-sm text-popover-foreground shadow-lg"
                     id={tooltipId}
                     role="tooltip"
                   >
@@ -295,7 +298,7 @@ export function InteractivePreview({
                       {prepared.compactTitle}
                     </p>
                     {prepared.compactDescription ? (
-                      <p className="mt-1 line-clamp-3 text-slate-300">
+                      <p className="mt-1 line-clamp-3 text-muted-foreground">
                         {prepared.compactDescription}
                       </p>
                     ) : null}
@@ -310,7 +313,7 @@ export function InteractivePreview({
       {openHotspot
         ? createPortal(
             <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4"
+              className="fixed inset-0 z-50 flex animate-in items-center justify-center bg-black/50 p-4 backdrop-blur-xs duration-150 fade-in-0"
               data-testid="preview-backdrop"
               onClick={(event) => {
                 if (event.target === event.currentTarget) {
@@ -321,10 +324,13 @@ export function InteractivePreview({
               <div
                 aria-labelledby={titleId}
                 aria-modal="true"
-                className="relative max-h-[80vh] w-full max-w-lg overflow-auto rounded-xl border border-slate-500 bg-slate-900 p-5 text-slate-100 shadow-2xl"
+                className="relative max-h-[80vh] w-full max-w-lg animate-in overflow-auto rounded-xl border bg-card p-6 text-card-foreground shadow-2xl duration-150 fade-in-0 zoom-in-95"
                 role="dialog"
               >
-                <h2 className="mb-3 pr-16 text-xl font-semibold" id={titleId}>
+                <h2
+                  className="mb-3 pr-10 text-lg font-semibold tracking-tight"
+                  id={titleId}
+                >
                   {openHotspot.label}
                 </h2>
                 <div
@@ -334,25 +340,25 @@ export function InteractivePreview({
                   }}
                 />
                 {openHotspot.hotspot.tags.length > 0 ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-1.5">
                     {openHotspot.hotspot.tags.map((tag) => (
-                      <span
-                        className="rounded-full bg-slate-700 px-2.5 py-1 text-xs"
-                        key={tag}
-                      >
+                      <Badge key={tag} variant="secondary">
                         {tag}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 ) : null}
-                <button
-                  className="absolute right-3 top-3 rounded-lg border border-slate-500 bg-slate-900 px-3 py-1.5 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
+                <Button
+                  aria-label="Close"
+                  className="absolute top-3 right-3"
                   onClick={closeCard}
                   ref={closeButtonRef}
+                  size="icon-sm"
                   type="button"
+                  variant="ghost"
                 >
-                  Close
-                </button>
+                  <XIcon aria-hidden="true" />
+                </Button>
               </div>
             </div>,
             document.body,

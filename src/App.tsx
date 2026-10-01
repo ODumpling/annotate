@@ -1,6 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore } from 'zustand/react'
 import {
+  CircleAlertIcon,
+  CircleCheckIcon,
+  DownloadIcon,
+  EyeIcon,
+  ImageUpIcon,
+  Loader2Icon,
+  MousePointerClickIcon,
+  PencilIcon,
+  TriangleAlertIcon,
+} from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import {
   EXPORT_WARN_BYTES,
   ExportError,
   exportFileName,
@@ -20,6 +34,12 @@ import { projectStore } from './store'
 import { ImageViewport } from './viewer'
 
 type AppMode = 'edit' | 'preview'
+
+const TAB_CLASS =
+  'inline-flex h-7 items-center gap-1.5 rounded-md px-3 font-medium text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 aria-selected:bg-background aria-selected:text-foreground aria-selected:shadow-sm dark:aria-selected:bg-input/50'
+
+const WARNING_ALERT_CLASS =
+  'border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400'
 
 function App() {
   const project = useStore(projectStore, (state) => state.project)
@@ -144,181 +164,268 @@ function App() {
     }
   }
 
-  return (
-    <main className="flex min-h-screen flex-col items-center gap-4 bg-slate-950 px-6 py-10 text-slate-100">
-      <h1 className="text-4xl font-semibold tracking-tight">Annotate</h1>
-      {imageUrl && page && (
-        <div
-          role="tablist"
-          aria-label="View mode"
-          className="flex gap-2 text-sm"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'edit'}
-            onClick={() => setMode('edit')}
-            className="rounded-lg border border-slate-500 px-4 py-1.5 font-medium aria-selected:bg-slate-800"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'preview'}
-            onClick={() => setMode('preview')}
-            className="rounded-lg border border-slate-500 px-4 py-1.5 font-medium aria-selected:bg-slate-800"
-          >
-            Preview
-          </button>
-        </div>
+  const hasImage = Boolean(imageUrl && page)
+
+  const dropzone = (
+    <label
+      className={cn(
+        'group flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed text-center text-sm text-muted-foreground transition-colors has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-3 has-[input:focus-visible]:ring-ring/50',
+        hasImage ? 'px-4 py-5' : 'px-6 py-16',
+        dragActive
+          ? 'border-primary bg-primary/5 text-foreground'
+          : 'border-border hover:border-primary/50 hover:bg-muted/50',
+        isIngesting
+          ? 'pointer-events-none cursor-not-allowed opacity-60'
+          : 'cursor-pointer',
       )}
-      {mode === 'edit' && (
-        <>
-          <label
-            className={`flex w-full max-w-md flex-col items-center gap-2 rounded-lg border border-dashed px-6 py-8 text-center text-sm ${
-              dragActive
-                ? 'border-sky-400 bg-sky-950/40 text-sky-300'
-                : 'border-slate-500 text-slate-400'
-            } ${
-              isIngesting
-                ? 'pointer-events-none cursor-not-allowed opacity-60'
-                : 'cursor-pointer'
-            }`}
-            data-drag-active={dragActive ? 'true' : 'false'}
-            aria-busy={isIngesting}
-            onDragEnter={(event) => {
-              if (isIngesting) return
-              event.preventDefault()
-              setDragActive(true)
-            }}
-            onDragOver={(event) => {
-              if (isIngesting) return
-              event.preventDefault()
-            }}
-            onDragLeave={(event) => {
-              // dragleave also fires when the pointer moves between the
-              // label's own children; only deactivate on a real exit.
-              const next = event.relatedTarget
-              if (
-                !(next instanceof Node) ||
-                !event.currentTarget.contains(next)
-              ) {
-                setDragActive(false)
-              }
-            }}
-            onDrop={(event) => {
-              event.preventDefault()
-              if (isIngesting) return
-              setDragActive(false)
-              void handleFiles(event.dataTransfer.files)
-            }}
-          >
-            Drag and drop a PNG, JPEG, or WebP image, or click to choose one.
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp"
-              className="sr-only"
-              disabled={isIngesting}
-              onChange={(event) => {
-                const input = event.currentTarget
-                void handleFiles(input.files).finally(() => {
-                  // Reset so re-selecting the same file path fires change again.
-                  input.value = ''
-                })
-              }}
-            />
-          </label>
-          {isIngesting && (
-            <p role="status" className="text-sm text-slate-400">
-              Reading image…
-            </p>
+      data-drag-active={dragActive ? 'true' : 'false'}
+      aria-busy={isIngesting}
+      onDragEnter={(event) => {
+        if (isIngesting) return
+        event.preventDefault()
+        setDragActive(true)
+      }}
+      onDragOver={(event) => {
+        if (isIngesting) return
+        event.preventDefault()
+      }}
+      onDragLeave={(event) => {
+        // dragleave also fires when the pointer moves between the
+        // label's own children; only deactivate on a real exit.
+        const next = event.relatedTarget
+        if (!(next instanceof Node) || !event.currentTarget.contains(next)) {
+          setDragActive(false)
+        }
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        if (isIngesting) return
+        setDragActive(false)
+        void handleFiles(event.dataTransfer.files)
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          'flex items-center justify-center rounded-full bg-muted text-foreground transition-colors group-data-[drag-active=true]:bg-primary group-data-[drag-active=true]:text-primary-foreground',
+          hasImage ? 'size-9' : 'size-14',
+        )}
+      >
+        {isIngesting ? (
+          <Loader2Icon className="size-5 animate-spin" />
+        ) : (
+          <ImageUpIcon className={hasImage ? 'size-4' : 'size-6'} />
+        )}
+      </span>
+      {hasImage
+        ? 'Drag and drop an image here, or click to replace the current one.'
+        : 'Drag and drop a PNG, JPEG, or WebP image, or click to choose one.'}
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="sr-only"
+        disabled={isIngesting}
+        onChange={(event) => {
+          const input = event.currentTarget
+          void handleFiles(input.files).finally(() => {
+            // Reset so re-selecting the same file path fires change again.
+            input.value = ''
+          })
+        }}
+      />
+    </label>
+  )
+
+  return (
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex min-h-14 w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
+          <div className="flex items-center gap-2.5">
+            <span
+              aria-hidden="true"
+              className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm"
+            >
+              <MousePointerClickIcon className="size-4" />
+            </span>
+            <h1 className="text-base font-semibold tracking-tight">Annotate</h1>
+          </div>
+          {hasImage && (
+            <div
+              role="tablist"
+              aria-label="View mode"
+              className="inline-flex h-8 items-center rounded-lg bg-muted p-0.5 text-sm"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'edit'}
+                onClick={() => setMode('edit')}
+                className={TAB_CLASS}
+              >
+                <PencilIcon aria-hidden="true" className="size-3.5" />
+                Edit
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={mode === 'preview'}
+                onClick={() => setMode('preview')}
+                className={TAB_CLASS}
+              >
+                <EyeIcon aria-hidden="true" className="size-3.5" />
+                Preview
+              </button>
+            </div>
           )}
-          {error && (
-            <p role="alert" className="text-sm text-red-400">
-              {error}
-            </p>
+          {hasImage && mode === 'edit' && (
+            <Button
+              type="button"
+              className="ml-auto"
+              disabled={isExporting}
+              onClick={() => void handleExport()}
+            >
+              {isExporting ? (
+                <Loader2Icon aria-hidden="true" className="animate-spin" />
+              ) : (
+                <DownloadIcon aria-hidden="true" />
+              )}
+              {isExporting ? 'Exporting…' : 'Export standalone HTML'}
+            </Button>
           )}
-          {warnings.length > 0 && (
-            <ul role="status" className="text-sm text-amber-400">
-              {warnings.map((warning) => (
-                <li key={warning}>{warning}</li>
-              ))}
-            </ul>
-          )}
-          {exportError && (
-            <p role="alert" className="text-sm text-red-400">
-              {exportError}
-            </p>
-          )}
-          {imageUrl && page && (
-            <div className="flex w-full max-w-6xl flex-col gap-4 lg:flex-row">
-              <div className="h-[60vh] flex-1">
-                <ImageViewport
-                  imageUrl={imageUrl}
-                  naturalWidth={page.width}
-                  naturalHeight={page.height}
-                  editing={{
-                    pageId: page.id,
-                    hotspots: pageHotspots,
-                    selectedHotspotId,
-                    actions,
-                  }}
-                />
-              </div>
-              <div className="flex flex-col gap-3 lg:w-96">
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => void handleExport()}
-                  className="rounded-lg border border-slate-500 px-4 py-2 text-sm font-medium disabled:opacity-50"
-                >
-                  {isExporting ? 'Exporting…' : 'Export standalone HTML'}
-                </button>
+        </div>
+      </header>
+
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+        {mode === 'edit' && (
+          <>
+            {(isIngesting ||
+              error ||
+              warnings.length > 0 ||
+              exportError ||
+              isExporting ||
+              exportSuccessMessage ||
+              exportWarning) && (
+              <div className="flex flex-col gap-2">
+                {isIngesting && (
+                  <p
+                    role="status"
+                    className="flex items-center gap-2 text-sm text-muted-foreground"
+                  >
+                    <Loader2Icon
+                      aria-hidden="true"
+                      className="size-4 animate-spin"
+                    />
+                    Reading image…
+                  </p>
+                )}
+                {error && (
+                  <Alert variant="destructive">
+                    <CircleAlertIcon aria-hidden="true" />
+                    <AlertDescription className="text-destructive">
+                      {error}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {warnings.length > 0 && (
+                  <Alert role="status" className={WARNING_ALERT_CLASS}>
+                    <TriangleAlertIcon aria-hidden="true" />
+                    <ul className="flex flex-col gap-0.5">
+                      {warnings.map((warning) => (
+                        <li key={warning}>{warning}</li>
+                      ))}
+                    </ul>
+                  </Alert>
+                )}
+                {exportError && (
+                  <Alert variant="destructive">
+                    <CircleAlertIcon aria-hidden="true" />
+                    <AlertDescription className="text-destructive">
+                      {exportError}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {isExporting && (
                   <p role="status" className="sr-only">
                     Exporting…
                   </p>
                 )}
                 {exportSuccessMessage && (
-                  <p role="status" className="text-sm text-emerald-400">
+                  <Alert
+                    role="status"
+                    className="border-emerald-500/30 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
+                  >
+                    <CircleCheckIcon aria-hidden="true" />
                     {exportSuccessMessage}
-                  </p>
+                  </Alert>
                 )}
                 {exportWarning && (
-                  <p role="status" className="text-sm text-amber-400">
+                  <Alert role="status" className={WARNING_ALERT_CLASS}>
+                    <TriangleAlertIcon aria-hidden="true" />
                     {exportWarning}
-                  </p>
+                  </Alert>
                 )}
-                <ProjectSettingsPanel
-                  settings={project.settings}
-                  actions={actions}
-                />
-                <HotspotInspector
-                  pageId={page.id}
-                  hotspots={pageHotspots}
-                  selectedHotspotId={selectedHotspotId}
-                  actions={actions}
-                />
               </div>
-            </div>
-          )}
-        </>
-      )}
-      {mode === 'preview' && imageUrl && page && (
-        <div className="w-full max-w-4xl">
-          <InteractivePreview
-            imageUrl={imageUrl}
-            imageAlt={project.name}
-            pageId={page.id}
-            pageWidth={page.width}
-            pageHeight={page.height}
-            hotspots={pageHotspots}
-            showBadgeNumbers={project.settings.showBadgeNumbers}
-          />
-        </div>
-      )}
-    </main>
+            )}
+            {imageUrl && page ? (
+              <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+                <div className="h-[70vh] min-h-[420px] rounded-xl border bg-card p-3 shadow-xs lg:sticky lg:top-20 lg:h-[calc(100vh-7rem)]">
+                  <ImageViewport
+                    imageUrl={imageUrl}
+                    naturalWidth={page.width}
+                    naturalHeight={page.height}
+                    editing={{
+                      pageId: page.id,
+                      hotspots: pageHotspots,
+                      selectedHotspotId,
+                      actions,
+                    }}
+                  />
+                </div>
+                <div className="flex flex-col gap-4">
+                  <ProjectSettingsPanel
+                    settings={project.settings}
+                    actions={actions}
+                  />
+                  <HotspotInspector
+                    pageId={page.id}
+                    hotspots={pageHotspots}
+                    selectedHotspotId={selectedHotspotId}
+                    actions={actions}
+                  />
+                  {dropzone}
+                </div>
+              </div>
+            ) : (
+              <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-6 py-10">
+                <div className="flex flex-col gap-2 text-center">
+                  <h2 className="text-2xl font-semibold tracking-tight">
+                    Start with an image
+                  </h2>
+                  <p className="text-balance text-muted-foreground">
+                    Mark hotspots on a screenshot, floor plan, or diagram, then
+                    export it as a single self-contained HTML file.
+                  </p>
+                </div>
+                {dropzone}
+              </div>
+            )}
+          </>
+        )}
+        {mode === 'preview' && imageUrl && page && (
+          <div className="mx-auto w-full max-w-5xl rounded-xl border bg-card p-4 shadow-xs sm:p-6">
+            <InteractivePreview
+              imageUrl={imageUrl}
+              imageAlt={project.name}
+              pageId={page.id}
+              pageWidth={page.width}
+              pageHeight={page.height}
+              hotspots={pageHotspots}
+              showBadgeNumbers={project.settings.showBadgeNumbers}
+            />
+          </div>
+        )}
+      </main>
+    </div>
   )
 }
 

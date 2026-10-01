@@ -25,4 +25,12 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // shadcn/ui components export their cva variant helpers alongside the
+    // component, which is the library's convention.
+    files: ['src/components/ui/**/*.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 )

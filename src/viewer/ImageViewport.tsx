@@ -1,4 +1,13 @@
 import {
+  HandIcon,
+  MoveHorizontalIcon,
+  SquareDashedMousePointerIcon,
+  Trash2Icon,
+  ZoomInIcon,
+  ZoomOutIcon,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
   useEffect,
   useLayoutEffect,
   useRef,
@@ -45,8 +54,8 @@ const INITIAL_TRANSFORM: ViewportTransform = {
   translateY: 0,
 }
 
-const TOOLBAR_BUTTON_CLASS =
-  'min-h-[2rem] rounded border border-slate-500 px-3 py-1.5 aria-pressed:bg-slate-800 disabled:opacity-50'
+const MODE_BUTTON_CLASS =
+  'aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary/90 dark:aria-pressed:bg-primary'
 
 export type ViewerMode = 'pan' | 'draw'
 
@@ -553,49 +562,69 @@ export function ImageViewport({
         aria-label="Viewport controls"
         className="flex flex-wrap items-center gap-2 text-sm"
       >
-        <button
-          type="button"
-          className={TOOLBAR_BUTTON_CLASS}
-          onClick={() => zoomFromCenter(1 / BUTTON_ZOOM_FACTOR)}
-        >
-          Zoom out
-        </button>
-        <span data-testid="zoom-level">{zoomPercent}%</span>
-        <button
-          type="button"
-          className={TOOLBAR_BUTTON_CLASS}
-          onClick={() => zoomFromCenter(BUTTON_ZOOM_FACTOR)}
-        >
-          Zoom in
-        </button>
-        <button
-          type="button"
-          className={TOOLBAR_BUTTON_CLASS}
-          onClick={fitToWidth}
-        >
-          Fit to width
-        </button>
+        <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom out"
+            title="Zoom out"
+            onClick={() => zoomFromCenter(1 / BUTTON_ZOOM_FACTOR)}
+          >
+            <ZoomOutIcon aria-hidden="true" />
+          </Button>
+          <span
+            data-testid="zoom-level"
+            className="min-w-11 text-center text-xs font-medium tabular-nums text-muted-foreground"
+          >
+            {zoomPercent}%
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Zoom in"
+            title="Zoom in"
+            onClick={() => zoomFromCenter(BUTTON_ZOOM_FACTOR)}
+          >
+            <ZoomInIcon aria-hidden="true" />
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={fitToWidth}>
+            <MoveHorizontalIcon aria-hidden="true" />
+            Fit to width
+          </Button>
+        </div>
         {editing && (
           <>
-            <button
+            <div className="flex items-center gap-1 rounded-lg border bg-background p-0.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={MODE_BUTTON_CLASS}
+                aria-pressed={mode === 'pan'}
+                onClick={() => setMode('pan')}
+              >
+                <HandIcon aria-hidden="true" />
+                Pan
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={MODE_BUTTON_CLASS}
+                aria-pressed={mode === 'draw'}
+                onClick={() => setMode('draw')}
+              >
+                <SquareDashedMousePointerIcon aria-hidden="true" />
+                Draw hotspot
+              </Button>
+            </div>
+            <Button
               type="button"
-              className={TOOLBAR_BUTTON_CLASS}
-              aria-pressed={mode === 'pan'}
-              onClick={() => setMode('pan')}
-            >
-              Pan
-            </button>
-            <button
-              type="button"
-              className={TOOLBAR_BUTTON_CLASS}
-              aria-pressed={mode === 'draw'}
-              onClick={() => setMode('draw')}
-            >
-              Draw hotspot
-            </button>
-            <button
-              type="button"
-              className={TOOLBAR_BUTTON_CLASS}
+              variant="destructive"
+              size="sm"
+              className="ml-auto"
               disabled={!selectedHotspot}
               onClick={() => {
                 if (selectedHotspot) {
@@ -603,8 +632,9 @@ export function ImageViewport({
                 }
               }}
             >
+              <Trash2Icon aria-hidden="true" />
               Delete selected hotspot
-            </button>
+            </Button>
           </>
         )}
       </div>
@@ -612,7 +642,7 @@ export function ImageViewport({
         ref={containerRef}
         data-testid="viewport-container"
         data-mode={mode}
-        className={`relative min-h-0 flex-1 touch-none overflow-hidden ${
+        className={`relative min-h-0 flex-1 touch-none overflow-hidden rounded-lg border bg-muted/40 bg-[radial-gradient(var(--color-border)_1px,transparent_1px)] [background-size:16px_16px] ${
           mode === 'draw' ? 'cursor-crosshair' : 'cursor-grab'
         }`}
         onPointerDown={handlePointerDown}
@@ -635,7 +665,7 @@ export function ImageViewport({
           {imageStatus === 'loading' && (
             <div
               role="status"
-              className="absolute inset-0 flex items-center justify-center bg-slate-800/40 text-sm text-slate-300"
+              className="absolute inset-0 flex items-center justify-center bg-muted/60 text-sm text-muted-foreground"
             >
               Loading image…
             </div>
@@ -643,7 +673,7 @@ export function ImageViewport({
           {imageStatus === 'error' && (
             <div
               role="alert"
-              className="absolute inset-0 flex items-center justify-center bg-slate-800/40 text-sm text-red-300"
+              className="absolute inset-0 flex items-center justify-center bg-muted/60 text-sm text-destructive"
             >
               Could not load the image.
             </div>
@@ -654,7 +684,7 @@ export function ImageViewport({
             width={naturalWidth}
             height={naturalHeight}
             draggable={false}
-            className={`block ${imageStatus === 'loaded' ? '' : 'invisible'}`}
+            className={`block shadow-lg ${imageStatus === 'loaded' ? '' : 'invisible'}`}
             onLoad={() => setImageStatus('loaded')}
             onError={() => setImageStatus('error')}
           />

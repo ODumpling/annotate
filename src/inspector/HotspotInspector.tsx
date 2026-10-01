@@ -1,10 +1,25 @@
 import { useState, type ChangeEvent, type FocusEvent } from 'react'
+import {
+  ChevronDownIcon,
+  ChevronUpIcon,
+  MapPinIcon,
+  Trash2Icon,
+} from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import type { Hotspot } from '../model'
 import type { ProjectActions } from '../store'
 
 export const TITLE_MAX_GRAPHEMES = 500
 export const DESCRIPTION_MAX_GRAPHEMES = 10_000
 export const HOTSPOT_COLOR_PATTERN = /^#[0-9A-Fa-f]{6}$/
+
+// Matches the default marker color used by the viewer and preview.
+const DEFAULT_SWATCH = '#2563EB'
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 
@@ -106,130 +121,152 @@ function HotspotRow({
     })
   }
 
+  const swatch = hotspot.color ?? DEFAULT_SWATCH
+
   return (
     <li
-      className={`rounded-lg border p-3 text-slate-900 ${
+      className={cn(
+        'cursor-pointer rounded-lg border bg-background p-3 transition-colors',
         selected
-          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-          : 'border-slate-500 bg-white'
-      }`}
+          ? 'border-primary bg-primary/5 ring-1 ring-primary'
+          : 'hover:border-foreground/20',
+      )}
       data-selected={selected ? 'true' : 'false'}
       onClick={() => actions.selectHotspot(hotspot.id)}
     >
-      <div className="mb-3 flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        <span
+          aria-hidden="true"
+          className="flex size-6 shrink-0 items-center justify-center rounded-full border-2 border-white text-[0.7rem] font-semibold text-white shadow-sm dark:border-white/80"
+          style={{ backgroundColor: swatch }}
+        >
+          {position + 1}
+        </span>
         <button
           aria-pressed={selected}
-          className="min-w-0 flex-1 truncate text-left font-medium"
+          className="min-h-7 min-w-0 flex-1 truncate rounded-md px-1.5 text-left text-sm font-medium outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
           onClick={() => actions.selectHotspot(hotspot.id)}
           type="button"
         >
           {displayName(hotspot)}
         </button>
-        <button
+        <Button
           aria-label={`Move ${displayName(hotspot)} up`}
-          className="min-h-6 min-w-6 disabled:opacity-40"
           disabled={position === 0}
           onClick={() => move(hotspot.id, -1)}
+          size="icon-sm"
           type="button"
+          variant="ghost"
         >
-          ↑
-        </button>
-        <button
+          <ChevronUpIcon aria-hidden="true" />
+        </Button>
+        <Button
           aria-label={`Move ${displayName(hotspot)} down`}
-          className="min-h-6 min-w-6 disabled:opacity-40"
           disabled={position === count - 1}
           onClick={() => move(hotspot.id, 1)}
+          size="icon-sm"
           type="button"
+          variant="ghost"
         >
-          ↓
-        </button>
-        <button
+          <ChevronDownIcon aria-hidden="true" />
+        </Button>
+        <Button
           aria-label={`Delete ${displayName(hotspot)}`}
-          className="min-h-6 px-1 text-red-700"
+          className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
           onClick={(event) => {
             event.stopPropagation()
             actions.deleteHotspot(hotspot.id)
           }}
+          size="icon-sm"
           type="button"
+          variant="ghost"
         >
-          Delete
-        </button>
+          <Trash2Icon aria-hidden="true" />
+        </Button>
       </div>
 
-      <div className="grid gap-3">
-        <label htmlFor={`${fieldId}-title`}>
-          <span className="block text-sm font-medium">Title</span>
-          <input
+      <div className="mt-3 grid gap-3 border-t pt-3">
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${fieldId}-title`}>Title</Label>
+          <Input
             aria-describedby={titleError ? `${fieldId}-title-error` : undefined}
             aria-invalid={titleError ? 'true' : undefined}
-            className="w-full rounded border border-slate-500 px-2 py-1"
             id={`${fieldId}-title`}
             onChange={updateTitle}
             type="text"
             value={hotspot.title}
           />
-        </label>
-        {titleError ? (
-          <p
-            className="text-sm text-red-700"
-            id={`${fieldId}-title-error`}
-            role="alert"
-          >
-            {titleError}
-          </p>
-        ) : null}
+          {titleError ? (
+            <p
+              className="text-xs text-destructive"
+              id={`${fieldId}-title-error`}
+              role="alert"
+            >
+              {titleError}
+            </p>
+          ) : null}
+        </div>
 
-        <label htmlFor={`${fieldId}-description`}>
-          <span className="block text-sm font-medium">Description</span>
-          <textarea
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${fieldId}-description`}>Description</Label>
+          <Textarea
             aria-describedby={
               descriptionError ? `${fieldId}-description-error` : undefined
             }
             aria-invalid={descriptionError ? 'true' : undefined}
-            className="min-h-24 w-full rounded border border-slate-500 px-2 py-1"
+            className="min-h-24"
             id={`${fieldId}-description`}
             onChange={updateDescription}
+            placeholder="Markdown supported"
             value={hotspot.description}
           />
-        </label>
-        {descriptionError ? (
-          <p
-            className="text-sm text-red-700"
-            id={`${fieldId}-description-error`}
-            role="alert"
-          >
-            {descriptionError}
-          </p>
-        ) : null}
+          {descriptionError ? (
+            <p
+              className="text-xs text-destructive"
+              id={`${fieldId}-description-error`}
+              role="alert"
+            >
+              {descriptionError}
+            </p>
+          ) : null}
+        </div>
 
-        <label htmlFor={`${fieldId}-color`}>
-          <span className="block text-sm font-medium">Color</span>
-          <input
-            aria-describedby={colorError ? `${fieldId}-color-error` : undefined}
-            aria-invalid={colorError ? 'true' : undefined}
-            className="w-full rounded border border-slate-500 px-2 py-1 font-mono"
-            defaultValue={hotspot.color ?? ''}
-            id={`${fieldId}-color`}
-            key={hotspot.color ?? 'empty'}
-            onBlur={commitColor}
-            placeholder="#2563EB"
-            type="text"
-          />
-        </label>
-        {colorError ? (
-          <p
-            className="text-sm text-red-700"
-            id={`${fieldId}-color-error`}
-            role="alert"
-          >
-            {colorError}
-          </p>
-        ) : null}
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${fieldId}-color`}>Color</Label>
+          <div className="relative">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 rounded-sm ring-1 ring-foreground/15"
+              style={{ backgroundColor: swatch }}
+            />
+            <Input
+              aria-describedby={
+                colorError ? `${fieldId}-color-error` : undefined
+              }
+              aria-invalid={colorError ? 'true' : undefined}
+              className="pl-8 font-mono uppercase placeholder:normal-case"
+              defaultValue={hotspot.color ?? ''}
+              id={`${fieldId}-color`}
+              key={hotspot.color ?? 'empty'}
+              onBlur={commitColor}
+              placeholder="#2563EB"
+              type="text"
+            />
+          </div>
+          {colorError ? (
+            <p
+              className="text-xs text-destructive"
+              id={`${fieldId}-color-error`}
+              role="alert"
+            >
+              {colorError}
+            </p>
+          ) : null}
+        </div>
 
-        <label htmlFor={`${fieldId}-tags`}>
-          <span className="block text-sm font-medium">Tags</span>
-          <input
-            className="w-full rounded border border-slate-500 px-2 py-1"
+        <div className="grid gap-1.5">
+          <Label htmlFor={`${fieldId}-tags`}>Tags</Label>
+          <Input
             defaultValue={hotspot.tags.join(', ')}
             id={`${fieldId}-tags`}
             key={hotspot.tags.join('\u0000')}
@@ -237,7 +274,7 @@ function HotspotRow({
             placeholder="review, navigation"
             type="text"
           />
-        </label>
+        </div>
       </div>
     </li>
   )
@@ -274,25 +311,45 @@ export function HotspotInspector({
   }
 
   return (
-    <aside aria-label="Hotspot inspector" className="w-full max-w-md p-4">
-      <h2 className="mb-3 text-lg font-semibold">Hotspots</h2>
-      {orderedHotspots.length === 0 ? (
-        <p className="text-sm text-slate-400">No hotspots on this page.</p>
-      ) : (
-        <ol className="grid gap-3">
-          {orderedHotspots.map((hotspot, position) => (
-            <HotspotRow
-              actions={actions}
-              count={orderedHotspots.length}
-              hotspot={hotspot}
-              key={hotspot.id}
-              move={move}
-              position={position}
-              selected={hotspot.id === selectedHotspotId}
-            />
-          ))}
-        </ol>
-      )}
+    <aside
+      aria-label="Hotspot inspector"
+      className="w-full rounded-xl border bg-card text-card-foreground shadow-xs"
+    >
+      <h2 className="flex items-center gap-2 border-b px-4 py-3 text-sm font-semibold">
+        <MapPinIcon
+          aria-hidden="true"
+          className="size-4 text-muted-foreground"
+        />
+        Hotspots
+        <Badge className="ml-auto" variant="secondary">
+          {orderedHotspots.length}
+        </Badge>
+      </h2>
+      <div className="p-3">
+        {orderedHotspots.length === 0 ? (
+          <div className="flex flex-col items-center gap-1 rounded-lg border border-dashed px-4 py-8 text-center">
+            <p className="text-sm font-medium">No hotspots on this page.</p>
+            <p className="text-xs text-muted-foreground">
+              Choose Draw hotspot, then click for a point or drag for a
+              rectangle.
+            </p>
+          </div>
+        ) : (
+          <ol className="grid gap-2">
+            {orderedHotspots.map((hotspot, position) => (
+              <HotspotRow
+                actions={actions}
+                count={orderedHotspots.length}
+                hotspot={hotspot}
+                key={hotspot.id}
+                move={move}
+                position={position}
+                selected={hotspot.id === selectedHotspotId}
+              />
+            ))}
+          </ol>
+        )}
+      </div>
     </aside>
   )
 }
