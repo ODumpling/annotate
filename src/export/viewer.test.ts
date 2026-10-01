@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Project } from '../model'
 import { exportProject } from './index'
 
@@ -84,11 +84,10 @@ function dialog(): Element | null {
   return document.querySelector('[role="dialog"]')
 }
 
-function keydown(key: string, shiftKey = false) {
+function keydown(key: string) {
   document.dispatchEvent(
     new KeyboardEvent('keydown', {
       key,
-      shiftKey,
       bubbles: true,
       cancelable: true,
     }),
@@ -110,9 +109,8 @@ describe('exported viewer rendering', () => {
     const image = document.querySelector<HTMLImageElement>('img.annotate-image')
     expect(image?.getAttribute('alt')).toBe('Viewer fixture')
     expect(image?.src.startsWith('data:image/png;base64,')).toBe(true)
-    expect(
-      image?.closest('.annotate-viewport')?.getAttribute('style'),
-    ).toContain('max-width: 1200px')
+    const viewport = image?.closest<HTMLElement>('.annotate-viewport')
+    expect(viewport?.style.getPropertyValue('--page-ratio')).toBe('1.5')
 
     const [point, rect] = markers()
     expect(point).toBeDefined()
@@ -145,96 +143,139 @@ describe('exported viewer rendering', () => {
   })
 })
 
-describe('exported viewer activation and focus', () => {
-  it('opens an accessible dialog card on click and focuses it', () => {
-    const [point] = markers()
-    point.click()
+describe('exported viewer tooltips', () => {
+  function tooltips(): NodeListOf<HTMLElement> {
+    return document.querySelectorAll('.annotate-tooltip')
+  }
 
-    const card = dialog()
-    expect(card).not.toBeNull()
-    expect(card?.getAttribute('aria-modal')).toBe('true')
-    expect(card?.getAttribute('aria-labelledby')).toBe('annotate-card-title')
-    expect(card?.querySelector('.annotate-card-title')?.textContent).toBe(
+  function hover(target: Element, type: 'mouseenter' | 'mouseleave') {
+    target.dispatchEvent(new MouseEvent(type))
+  }
+
+  it('shows the title, description, and tags on hover', () => {
+    const [point] = markers()
+    hover(point, 'mouseenter')
+
+    const tooltip = dialog()
+    expect(tooltip).not.toBeNull()
+    expect(tooltip?.className).toBe('annotate-tooltip')
+    expect(tooltip?.getAttribute('aria-modal')).toBeNull()
+    const titleId = tooltip?.getAttribute('aria-labelledby') ?? ''
+    expect(document.getElementById(titleId)?.textContent).toBe(
       'First </script> hotspot',
     )
+    expect(point.getAttribute('aria-expanded')).toBe('true')
+    expect(point.getAttribute('aria-controls')).toBe(tooltip?.id)
 
-    const link = card?.querySelector('a')
+    const link = tooltip?.querySelector('a')
     expect(link?.getAttribute('href')).toBe('https://example.com')
     expect(link?.getAttribute('target')).toBe('_blank')
     expect(link?.getAttribute('rel')).toBe('noopener noreferrer')
-
-    expect(card?.querySelectorAll('.annotate-tag')[0].textContent).toBe('alpha')
-    expect(card?.querySelectorAll('.annotate-tag')[1].textContent).toBe(
+    expect(tooltip?.querySelectorAll('.annotate-tag')[0].textContent).toBe(
+      'alpha',
+    )
+    expect(tooltip?.querySelectorAll('.annotate-tag')[1].textContent).toBe(
       'line\u2028sep',
     )
-
-    const close = card?.querySelector('.annotate-card-close')
-    expect(document.activeElement).toBe(close)
-    expect(point.getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('closes on Escape and restores focus to the marker', () => {
+  it('hides a hover tooltip shortly after the pointer leaves', () => {
+    vi.useFakeTimers()
+    try {
+      const [point] = markers()
+      hover(point, 'mouseenter')
+      hover(point, 'mouseleave')
+      expect(dialog()).not.toBeNull()
+      vi.advanceTimersByTime(200)
+      expect(dialog()).toBeNull()
+      expect(point.getAttribute('aria-expanded')).toBe('false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('keeps a hover tooltip open while the pointer moves onto it', () => {
+    vi.useFakeTimers()
+    try {
+      const [point] = markers()
+      hover(point, 'mouseenter')
+      hover(point, 'mouseleave')
+      hover(dialog() as Element, 'mouseenter')
+      vi.advanceTimersByTime(200)
+      expect(dialog()).not.toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('pins the tooltip on click so it survives the pointer leaving', () => {
+    vi.useFakeTimers()
+    try {
+      const [point] = markers()
+      point.click()
+      hover(point, 'mouseleave')
+      vi.advanceTimersByTime(200)
+      expect(dialog()).not.toBeNull()
+
+      point.click()
+      expect(dialog()).toBeNull()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('closes a pinned tooltip on an outside click', () => {
     const [point] = markers()
     point.click()
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+    expect(dialog()).toBeNull()
+  })
+
+  it('shows on keyboard focus and closes on Escape, keeping focus on the marker', () => {
+    const [point] = markers()
+    point.focus()
+    expect(dialog()).not.toBeNull()
     keydown('Escape')
     expect(dialog()).toBeNull()
     expect(document.activeElement).toBe(point)
     expect(point.getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('closes on backdrop click and restores focus', () => {
+  it('places the tooltip after its marker so Tab reaches description links', () => {
     const [point] = markers()
     point.click()
-    document
-      .querySelector('.annotate-backdrop')
-      ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    expect(dialog()).toBeNull()
-    expect(document.activeElement).toBe(point)
-  })
-
-  it('traps Tab focus inside the open card', () => {
-    const [point] = markers()
-    point.click()
-    const card = dialog() as HTMLElement
-    const link = card.querySelector('a') as HTMLAnchorElement
-    const close = card.querySelector(
-      '.annotate-card-close',
-    ) as HTMLButtonElement
-    expect(document.activeElement).toBe(close)
-
-    keydown('Tab')
-    expect(document.activeElement).toBe(link)
-
-    keydown('Tab', true)
-    expect(document.activeElement).toBe(close)
+    expect(point.nextElementSibling).toBe(dialog())
   })
 
   it('uses native button semantics for keyboard and touch activation', () => {
     for (const marker of markers()) {
       expect(marker.tagName).toBe('BUTTON')
       expect(marker.getAttribute('type')).toBe('button')
-      marker.focus()
-      expect(document.activeElement).toBe(marker)
     }
     const [, rect] = markers()
-    rect.focus()
     rect.click()
-    expect(dialog()).not.toBeNull()
-    expect(dialog()?.querySelector('.annotate-card-title')?.textContent).toBe(
-      'Second',
-    )
+    expect(
+      dialog()?.querySelector('.annotate-tooltip-title')?.textContent,
+    ).toBe('Second')
   })
 
-  it('replaces the open card when another marker is activated', () => {
+  it('replaces the open tooltip when another marker is activated', () => {
     const [point, rect] = markers()
     point.click()
     rect.click()
-    const cards = document.querySelectorAll('[role="dialog"]')
-    expect(cards.length).toBe(1)
-    expect(cards[0].querySelector('.annotate-card-title')?.textContent).toBe(
-      'Second',
-    )
+    expect(tooltips()).toHaveLength(1)
+    expect(
+      tooltips()[0].querySelector('.annotate-tooltip-title')?.textContent,
+    ).toBe('Second')
     expect(point.getAttribute('aria-expanded')).toBe('false')
     expect(rect.getAttribute('aria-expanded')).toBe('true')
+  })
+
+  it('ignores hover on other markers while one is pinned', () => {
+    const [point, rect] = markers()
+    point.click()
+    hover(rect, 'mouseenter')
+    expect(tooltips()).toHaveLength(1)
+    expect(point.getAttribute('aria-expanded')).toBe('true')
   })
 })

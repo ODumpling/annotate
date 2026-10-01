@@ -90,31 +90,28 @@ function viewerCss(theme: ExportTheme | undefined): string {
   const palette = paletteFor(theme)
   return `* { box-sizing: border-box; }
 body { margin: 0; background: ${palette.background}; color: ${palette.text}; font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
-.annotate { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
-.annotate-header { margin: 0 0 20px; }
-.annotate-title { margin: 0; font-size: 1.5rem; letter-spacing: -0.01em; }
-.annotate-page { margin: 0 0 32px; }
-.annotate-viewport { position: relative; width: 100%; margin: 0 auto; }
-.annotate-image { display: block; width: 100%; height: auto; border-radius: 6px; }
+.annotate-title { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.annotate-page { display: flex; align-items: center; justify-content: center; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; }
+.annotate-viewport { position: relative; flex: none; width: min(100%, 100vh * var(--page-ratio, 1)); width: min(100%, 100dvh * var(--page-ratio, 1)); aspect-ratio: var(--page-ratio, 1); }
+.annotate-image { display: block; width: 100%; height: 100%; }
 .annotate-overlay { position: absolute; inset: 0; }
 .annotate-marker { position: absolute; transform: translate(-50%, -50%); width: 28px; height: 28px; padding: 0; border: 2px solid ${palette.markerBorder}; border-radius: 999px; background: var(--marker-color, #2563eb); color: #fff; font: 600 13px/1 system-ui; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 0 0 2px ${palette.markerShadow}; }
 .annotate-marker-rect { transform: none; width: auto; height: auto; border: 2px solid var(--marker-color, #2563eb); background: ${palette.overlayScrim}; border-radius: 4px; }
 .annotate-marker-rect .annotate-badge { position: absolute; left: 0; top: 0; transform: translate(-50%, -50%); }
 .annotate-badge { pointer-events: none; }
-.annotate-marker:focus-visible, .annotate-card-close:focus-visible, .annotate-card a:focus-visible { outline: 3px solid ${palette.focusOutline}; outline-offset: 2px; }
-.annotate-backdrop { position: fixed; inset: 0; background: ${palette.markerShadow}; }
-.annotate-card { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; width: min(480px, 92vw); max-height: 80vh; overflow: auto; background: ${palette.cardBackground}; color: ${palette.text}; border: 1px solid ${palette.cardBorder}; border-radius: 12px; padding: 20px 20px 18px; box-shadow: 0 24px 48px ${palette.markerShadow}; }
-.annotate-card-title { margin: 0 0 12px; font-size: 1.2rem; }
-.annotate-card-body p { margin: 0 0 10px; }
-.annotate-card-body :is(ul, ol) { margin: 0 0 10px; padding-left: 22px; }
-.annotate-card-body blockquote { margin: 0 0 10px; padding: 4px 12px; border-left: 3px solid ${palette.cardBorder}; color: ${palette.blockquoteText}; }
-.annotate-card-body code { background: ${palette.codeBackground}; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
-.annotate-card-body pre { background: ${palette.codeBackground}; border-radius: 8px; padding: 12px; overflow: auto; }
-.annotate-card-body pre code { background: none; padding: 0; }
-.annotate-card a { color: ${palette.link}; }
-.annotate-card-tags { margin: 10px 0 0; }
-.annotate-tag { display: inline-block; margin: 0 6px 6px 0; padding: 2px 10px; background: ${palette.tagBackground}; border-radius: 999px; font-size: 12px; }
-.annotate-card-close { position: absolute; right: 10px; top: 10px; border: 1px solid ${palette.cardBorder}; background: ${palette.background}; color: ${palette.text}; border-radius: 8px; padding: 6px 10px; cursor: pointer; }
+.annotate-marker:focus-visible, .annotate-tooltip a:focus-visible { outline: 3px solid ${palette.focusOutline}; outline-offset: 2px; }
+.annotate-tooltip { position: fixed; left: 0; top: 0; z-index: 20; width: max-content; max-width: min(360px, calc(100vw - 16px)); max-height: min(60vh, 420px); overflow: auto; background: ${palette.cardBackground}; color: ${palette.text}; border: 1px solid ${palette.cardBorder}; border-radius: 10px; padding: 12px 14px; font-size: 14px; box-shadow: 0 12px 32px ${palette.markerShadow}; }
+.annotate-tooltip-title { margin: 0 0 6px; font-size: 1rem; }
+.annotate-tooltip-body p { margin: 0 0 8px; }
+.annotate-tooltip-body > :last-child { margin-bottom: 0; }
+.annotate-tooltip-body :is(ul, ol) { margin: 0 0 8px; padding-left: 20px; }
+.annotate-tooltip-body blockquote { margin: 0 0 8px; padding: 2px 10px; border-left: 3px solid ${palette.cardBorder}; color: ${palette.blockquoteText}; }
+.annotate-tooltip-body code { background: ${palette.codeBackground}; border-radius: 4px; padding: 1px 5px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+.annotate-tooltip-body pre { background: ${palette.codeBackground}; border-radius: 8px; padding: 10px; overflow: auto; }
+.annotate-tooltip-body pre code { background: none; padding: 0; }
+.annotate-tooltip a { color: ${palette.link}; }
+.annotate-tooltip-tags { margin: 8px 0 0; }
+.annotate-tag { display: inline-block; margin: 0 6px 4px 0; padding: 1px 8px; background: ${palette.tagBackground}; border-radius: 999px; font-size: 12px; }
 .annotate-noscript { color: ${palette.text}; padding: 16px; }
 .annotate-error { color: ${palette.text}; padding: 16px; }`
 }
@@ -122,6 +119,9 @@ body { margin: 0; background: ${palette.background}; color: ${palette.text}; fon
 const VIEWER_JS = `(function () {
   'use strict'
   var ACCENT_COLOR = '#2563eb'
+  var TOOLTIP_GAP = 8
+  var EDGE_MARGIN = 8
+  var HIDE_DELAY_MS = 150
   var dataElement = document.getElementById('annotate-data')
   var data = null
   try {
@@ -136,7 +136,12 @@ const VIEWER_JS = `(function () {
     return
   }
 
-  var openCard = null
+  // The one visible tooltip: { marker, tooltip, pinned }. Hover/focus shows an
+  // unpinned tooltip; a click pins it open until clicked again, Escape, or a
+  // click elsewhere.
+  var active = null
+  var hideTimer = null
+  var tooltipCount = 0
 
   function element(tag, className, text) {
     var node = document.createElement(tag)
@@ -151,6 +156,118 @@ const VIEWER_JS = `(function () {
 
   function percent(value) {
     return value * 100 + '%'
+  }
+
+  function cancelHide() {
+    if (hideTimer !== null) {
+      clearTimeout(hideTimer)
+      hideTimer = null
+    }
+  }
+
+  function scheduleHide() {
+    cancelHide()
+    hideTimer = setTimeout(function () {
+      hideTimer = null
+      if (active && !active.pinned) {
+        hideTooltip(false)
+      }
+    }, HIDE_DELAY_MS)
+  }
+
+  function positionTooltip() {
+    if (!active) {
+      return
+    }
+    var anchor = active.marker.getBoundingClientRect()
+    var tooltip = active.tooltip
+    var width = tooltip.offsetWidth
+    var height = tooltip.offsetHeight
+    var viewWidth = document.documentElement.clientWidth || window.innerWidth
+    var viewHeight = document.documentElement.clientHeight || window.innerHeight
+    var left = anchor.left + anchor.width / 2 - width / 2
+    left = Math.max(EDGE_MARGIN, Math.min(left, viewWidth - width - EDGE_MARGIN))
+    var top = anchor.bottom + TOOLTIP_GAP
+    if (top + height > viewHeight - EDGE_MARGIN) {
+      var above = anchor.top - TOOLTIP_GAP - height
+      top = above >= EDGE_MARGIN
+        ? above
+        : Math.max(EDGE_MARGIN, viewHeight - height - EDGE_MARGIN)
+    }
+    tooltip.style.left = Math.round(left) + 'px'
+    tooltip.style.top = Math.round(top) + 'px'
+  }
+
+  function buildTooltip(hotspot, marker) {
+    tooltipCount += 1
+    var tooltip = element('div', 'annotate-tooltip')
+    tooltip.id = 'annotate-tooltip-' + tooltipCount
+    tooltip.setAttribute('role', 'dialog')
+    var title = element('h2', 'annotate-tooltip-title', hotspot.title)
+    title.id = tooltip.id + '-title'
+    tooltip.setAttribute('aria-labelledby', title.id)
+    tooltip.appendChild(title)
+    var body = element('div', 'annotate-tooltip-body')
+    body.innerHTML = hotspot.descriptionHtml
+    tooltip.appendChild(body)
+    if (Array.isArray(hotspot.tags) && hotspot.tags.length > 0) {
+      var tags = element('div', 'annotate-tooltip-tags')
+      hotspot.tags.forEach(function (tag) {
+        tags.appendChild(element('span', 'annotate-tag', tag))
+      })
+      tooltip.appendChild(tags)
+    }
+    tooltip.addEventListener('mouseenter', cancelHide)
+    tooltip.addEventListener('mouseleave', scheduleHide)
+    tooltip.addEventListener('focusout', function (event) {
+      handleFocusOut(event, marker)
+    })
+    return tooltip
+  }
+
+  function showTooltip(hotspot, marker, pinned) {
+    cancelHide()
+    if (active && active.marker === marker) {
+      active.pinned = active.pinned || pinned
+      return
+    }
+    if (active) {
+      hideTooltip(false)
+    }
+    var tooltip = buildTooltip(hotspot, marker)
+    // Inserted right after its marker so Tab moves from the marker into any
+    // links in the description before reaching the next marker.
+    marker.parentNode.insertBefore(tooltip, marker.nextSibling)
+    active = { marker: marker, tooltip: tooltip, pinned: pinned }
+    marker.setAttribute('aria-expanded', 'true')
+    marker.setAttribute('aria-controls', tooltip.id)
+    positionTooltip()
+  }
+
+  function hideTooltip(restoreFocus) {
+    cancelHide()
+    if (!active) {
+      return
+    }
+    var current = active
+    active = null
+    current.tooltip.remove()
+    current.marker.setAttribute('aria-expanded', 'false')
+    current.marker.removeAttribute('aria-controls')
+    if (restoreFocus) {
+      current.marker.focus()
+    }
+  }
+
+  function handleFocusOut(event, marker) {
+    if (!active || active.marker !== marker || active.pinned) {
+      return
+    }
+    var next = event.relatedTarget
+    if (next && (next === marker || active.tooltip.contains(next))) {
+      return
+    }
+    hideTooltip(false)
   }
 
   function buildMarker(hotspot, number) {
@@ -175,8 +292,30 @@ const VIEWER_JS = `(function () {
     if (data.showBadgeNumbers) {
       marker.appendChild(element('span', 'annotate-badge', String(number)))
     }
+    marker.addEventListener('mouseenter', function () {
+      if (!active || !active.pinned) {
+        showTooltip(hotspot, marker, false)
+      }
+    })
+    marker.addEventListener('mouseleave', function () {
+      if (active && active.marker === marker && !active.pinned) {
+        scheduleHide()
+      }
+    })
+    marker.addEventListener('focus', function () {
+      if (!active || !active.pinned) {
+        showTooltip(hotspot, marker, false)
+      }
+    })
+    marker.addEventListener('focusout', function (event) {
+      handleFocusOut(event, marker)
+    })
     marker.addEventListener('click', function () {
-      openCardFor(hotspot, marker)
+      if (active && active.marker === marker && active.pinned) {
+        hideTooltip(false)
+      } else {
+        showTooltip(hotspot, marker, true)
+      }
     })
     return marker
   }
@@ -185,118 +324,47 @@ const VIEWER_JS = `(function () {
     var section = element('section', 'annotate-page')
     section.setAttribute('aria-label', 'Page ' + (pageIndex + 1))
     var viewport = element('div', 'annotate-viewport')
-    viewport.style.maxWidth = page.width + 'px'
+    viewport.style.setProperty('--page-ratio', String(page.width / page.height))
     var image = element('img', 'annotate-image')
     image.alt = data.name
     image.src = page.imageDataUrl
     var overlay = element('div', 'annotate-overlay')
     viewport.appendChild(image)
     viewport.appendChild(overlay)
+    var number = 0
     data.hotspots.forEach(function (hotspot) {
       if (hotspot.pageId === page.id) {
-        overlay.appendChild(buildMarker(hotspot, overlay.children.length + 1))
+        number += 1
+        overlay.appendChild(buildMarker(hotspot, number))
       }
     })
     section.appendChild(viewport)
     return section
   }
 
-  function focusableItems(root) {
-    var nodes = root.querySelectorAll('button, a[href]')
-    return Array.prototype.filter.call(nodes, function (node) {
-      return !node.disabled
-    })
-  }
-
-  function handleKeydown(event) {
-    if (!openCard) {
-      return
-    }
-    if (event.key === 'Escape') {
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && active) {
       event.preventDefault()
-      closeCard(true)
-      return
+      var focusInside =
+        document.activeElement === active.marker ||
+        active.tooltip.contains(document.activeElement)
+      hideTooltip(focusInside)
     }
-    if (event.key !== 'Tab') {
-      return
+  })
+  document.addEventListener('click', function (event) {
+    if (
+      active &&
+      !active.marker.contains(event.target) &&
+      !active.tooltip.contains(event.target)
+    ) {
+      hideTooltip(false)
     }
-    var items = focusableItems(openCard.card)
-    if (items.length === 0) {
-      event.preventDefault()
-      return
-    }
-    var first = items[0]
-    var last = items[items.length - 1]
-    var active = document.activeElement
-    if (event.shiftKey) {
-      if (active === first || !openCard.card.contains(active)) {
-        event.preventDefault()
-        last.focus()
-      }
-    } else if (active === last || !openCard.card.contains(active)) {
-      event.preventDefault()
-      first.focus()
-    }
-  }
-
-  function openCardFor(hotspot, marker) {
-    if (openCard) {
-      closeCard(false)
-    }
-    var backdrop = element('div', 'annotate-backdrop')
-    var card = element('div', 'annotate-card')
-    card.setAttribute('role', 'dialog')
-    card.setAttribute('aria-modal', 'true')
-    var title = element('h2', 'annotate-card-title', hotspot.title)
-    title.id = 'annotate-card-title'
-    card.setAttribute('aria-labelledby', 'annotate-card-title')
-    var body = element('div', 'annotate-card-body')
-    body.innerHTML = hotspot.descriptionHtml
-    var close = element('button', 'annotate-card-close', 'Close')
-    close.type = 'button'
-    close.addEventListener('click', function () {
-      closeCard(true)
-    })
-    backdrop.addEventListener('click', function () {
-      closeCard(true)
-    })
-    card.appendChild(title)
-    card.appendChild(body)
-    if (Array.isArray(hotspot.tags) && hotspot.tags.length > 0) {
-      var tags = element('div', 'annotate-card-tags')
-      hotspot.tags.forEach(function (tag) {
-        tags.appendChild(element('span', 'annotate-tag', tag))
-      })
-      card.appendChild(tags)
-    }
-    card.appendChild(close)
-    document.body.appendChild(backdrop)
-    document.body.appendChild(card)
-    openCard = { card: card, backdrop: backdrop, marker: marker }
-    marker.setAttribute('aria-expanded', 'true')
-    document.addEventListener('keydown', handleKeydown)
-    close.focus()
-  }
-
-  function closeCard(restoreFocus) {
-    if (!openCard) {
-      return
-    }
-    var current = openCard
-    openCard = null
-    document.removeEventListener('keydown', handleKeydown)
-    current.card.remove()
-    current.backdrop.remove()
-    current.marker.setAttribute('aria-expanded', 'false')
-    if (restoreFocus) {
-      current.marker.focus()
-    }
-  }
+  })
+  window.addEventListener('resize', positionTooltip)
+  window.addEventListener('scroll', positionTooltip, true)
 
   var main = element('main', 'annotate')
-  var header = element('header', 'annotate-header')
-  header.appendChild(element('h1', 'annotate-title', data.name))
-  main.appendChild(header)
+  main.appendChild(element('h1', 'annotate-title', data.name))
   data.pages.forEach(function (page, index) {
     main.appendChild(buildPage(page, index))
   })
