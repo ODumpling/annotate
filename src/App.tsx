@@ -237,9 +237,9 @@ function App() {
   )
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="mx-auto flex min-h-14 w-full max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
+    <div className="flex min-h-dvh flex-col bg-background text-foreground lg:h-dvh">
+      <header className="sticky top-0 z-40 shrink-0 border-b bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="flex min-h-14 w-full flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2">
           <div className="flex items-center gap-2.5">
             <span
               aria-hidden="true"
@@ -295,7 +295,7 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+      <main className="flex w-full flex-1 flex-col gap-4 p-4 lg:min-h-0 lg:overflow-y-auto">
         {mode === 'edit' && (
           <>
             {(isIngesting ||
@@ -367,8 +367,8 @@ function App() {
               </div>
             )}
             {imageUrl && page ? (
-              <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-                <div className="h-[70vh] min-h-[420px] rounded-xl border bg-card p-3 shadow-xs lg:sticky lg:top-20 lg:h-[calc(100vh-7rem)]">
+              <div className="grid flex-1 gap-4 lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_24rem]">
+                <div className="h-[70vh] min-h-[420px] rounded-xl border bg-card p-3 shadow-xs lg:h-auto lg:min-h-0">
                   <ImageViewport
                     imageUrl={imageUrl}
                     naturalWidth={page.width}
@@ -381,7 +381,7 @@ function App() {
                     }}
                   />
                 </div>
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 lg:min-h-0 lg:overflow-y-auto">
                   <ProjectSettingsPanel
                     settings={project.settings}
                     actions={actions}
@@ -412,7 +412,7 @@ function App() {
           </>
         )}
         {mode === 'preview' && imageUrl && page && (
-          <div className="mx-auto w-full max-w-5xl rounded-xl border bg-card p-4 shadow-xs sm:p-6">
+          <div className="w-full rounded-xl border bg-card p-4 shadow-xs sm:p-6">
             <InteractivePreview
               imageUrl={imageUrl}
               imageAlt={project.name}
